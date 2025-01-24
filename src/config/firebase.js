@@ -3,13 +3,13 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getAnalytics } from 'firebase/analytics'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDl-eInXN-jsS4EscDdGHww3G4Q0wYnjGM",
-  authDomain: "stayconnected365-73277.firebaseapp.com",
-  projectId: "stayconnected365-73277",
-  storageBucket: "stayconnected365-73277.firebasestorage.app",
-  messagingSenderId: "303176621632",
-  appId: "1:303176621632:web:61943600bf7d936cb649a5",
-  measurementId: "G-0680TJHXC7"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 }
 
 const app = initializeApp(firebaseConfig)
