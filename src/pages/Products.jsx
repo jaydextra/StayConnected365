@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { esimApi } from '../config/api'
 import './Products.css'
 
@@ -6,18 +7,17 @@ function Products() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setLoading(true)
         const data = await esimApi.getProducts()
-        console.log('Fetched products:', data) // For debugging
-        setProducts(data || [])
-        setLoading(false)
+        setProducts(data)
       } catch (err) {
+        setError('Failed to fetch products')
         console.error('Error in component:', err)
-        setError(err.message || 'Failed to load products. Please try again later.')
+      } finally {
         setLoading(false)
       }
     }
@@ -25,53 +25,64 @@ function Products() {
     fetchProducts()
   }, [])
 
-  if (loading) {
-    return <div className="loading">Loading available plans...</div>
+  const handlePurchase = async (product) => {
+    try {
+      // Navigate to checkout with product details
+      navigate('/checkout', { state: { product } })
+    } catch (error) {
+      console.error('Purchase error:', error)
+      setError('Failed to process purchase')
+    }
   }
 
-  if (error) {
-    return (
-      <div className="error">
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Try Again</button>
-      </div>
-    )
-  }
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
 
   return (
-    <div className="products-page">
-      <div className="content-wrapper">
-        <h1>eSIM Plans</h1>
-        <p className="intro">Choose your perfect eSIM plan for seamless connectivity worldwide.</p>
-        
-        <div className="products-grid">
-          {products.map(product => (
-            <div key={product.packageCode} className="product-card">
-              <div className="product-header">
-                <h2>{product.name}</h2>
-                <span className="price">${(product.price / 10000).toFixed(2)}</span>
-              </div>
-              
-              <div className="product-details">
-                <p>{product.description}</p>
-                <ul className="features">
-                  <li>Data: {(product.volume / (1024 * 1024)).toFixed(0)}MB</li>
-                  <li>Validity: {product.duration} {product.durationUnit.toLowerCase()}s</li>
-                  <li>Coverage: {product.location}</li>
-                  <li>Speed: {product.speed}</li>
-                  {product.smsStatus > 0 && <li>SMS Support: Yes</li>}
-                </ul>
-              </div>
-
-              <button 
-                className="purchase-btn"
-                onClick={() => handlePurchase(product.packageCode)}
-              >
-                Select Plan
-              </button>
+    <div className="products-container">
+      <h1>Available Plans</h1>
+      <div className="products-grid">
+        {products.map((product) => (
+          <div key={product.id} className="product-card">
+            <h2>
+              {product.name.includes('Global') ? (
+                <>
+                  <span className="plan-type">Global Plan</span>
+                  <div className="plan-specs">
+                    {product.data}GB for {product.duration} {product.durationUnit}s
+                  </div>
+                </>
+              ) : (
+                product.name
+              )}
+            </h2>
+            <div className="product-details">
+              <p>{product.data}GB Data</p>
+              <p>Valid for {product.validityDays} days</p>
+              <p>Speed: {product.speed}</p>
+              {product.smsSupported && <p>SMS Supported</p>}
             </div>
-          ))}
-        </div>
+            <div className="product-networks">
+              {product.networks?.map((network) => (
+                <div key={network.country} className="network-item">
+                  {network.country}
+                </div>
+              ))}
+            </div>
+            <div className="product-price">
+              <span className="price">
+                ${product.price.toFixed(2)}
+              </span>
+              <span className="currency">{product.currencyCode}</span>
+            </div>
+            <button 
+              onClick={() => handlePurchase(product)}
+              className="select-plan-btn"
+            >
+              Select Plan
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )

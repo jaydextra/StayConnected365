@@ -1,0 +1,105 @@
+.checkout-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+
+.checkout-error {
+  text-align: center;
+  padding: 3rem;
+}
+
+.order-summary {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-info {
+  margin: 1.5rem 0;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.product-info h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.details {
+  color: var(--text-secondary);
+}
+
+.details p {
+  margin: 0.5rem 0;
+}
+
+.price-info {
+  margin-top: 1.5rem;
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.checkout-btn {
+  width: 100%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.checkout-btn:hover {
+  background: var(--primary-dark);
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.esim-details {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.qr-code img {
+  max-width: 200px;
+}
+
+.activation-info {
+  color: var(--text-secondary);
+}
+
+.activation-info ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.checkout-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+} 

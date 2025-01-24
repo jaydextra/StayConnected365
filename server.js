@@ -1,6 +1,8 @@
+require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
-const fetch = require('node-fetch')
+const axios = require('axios')
+const crypto = require('crypto')
 
 const app = express()
 app.use(cors())
@@ -10,33 +12,51 @@ const API_BASE_URL = 'https://api.esimaccess.com/api/v1/open'
 const ACCESS_CODE = process.env.VITE_ESIM_API_KEY
 const SECRET_KEY = process.env.VITE_ESIM_SECRET_KEY
 
-app.post('/api/products', async (req, res) => {
-  try {
-    const requestId = crypto.randomUUID()
-    const timestamp = Date.now().toString()
-    const body = {
-      locationCode: '',
-      type: 'BASE',
-      packageCode: '',
-      iccid: ''
-    }
+// Helper function to generate UUID
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
 
-    const response = await fetch(`${API_BASE_URL}/package/list`, {
-      method: 'POST',
+// Helper function to calculate signature
+const calculateSignature = async (timestamp, requestId, body) => {
+  const signData = `${timestamp}${requestId}${ACCESS_CODE}${JSON.stringify(body)}`
+  return crypto
+    .createHmac('sha256', SECRET_KEY)
+    .update(signData)
+    .digest('hex')
+    .toUpperCase()
+}
+
+app.post('/api/*', async (req, res) => {
+  try {
+    const timestamp = Date.now().toString()
+    const requestId = generateUUID()
+    const signature = await calculateSignature(timestamp, requestId, req.body)
+
+    const response = await axios({
+      method: 'post',
+      url: `${API_BASE_URL}${req.path.replace('/api', '')}`,
       headers: {
         'RT-AccessCode': ACCESS_CODE,
         'RT-RequestID': requestId,
         'RT-Timestamp': timestamp,
+        'RT-Signature': signature,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body)
+      data: req.body
     })
 
-    const data = await response.json()
-    res.json(data)
+    res.json(response.data)
   } catch (error) {
-    console.error('Server error:', error)
-    res.status(500).json({ error: 'Failed to fetch products' })
+    console.error('Proxy Error:', error.response?.data || error.message)
+    res.status(500).json({ 
+      success: false, 
+      errorMessage: 'Failed to fetch data'
+    })
   }
 })
 

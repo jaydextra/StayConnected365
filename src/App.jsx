@@ -10,6 +10,7 @@ import Privacy from './pages/Privacy'
 import FAQ from './pages/FAQ'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import Checkout from './pages/Checkout'
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="faq" element={<FAQ />} />
             <Route path="login" element={<Login />} />
             <Route path="signup" element={<Signup />} />
+            <Route path="checkout" element={<Checkout />} />
           </Route>
         </Routes>
       </BrowserRouter>

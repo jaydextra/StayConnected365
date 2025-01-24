@@ -1,6 +1,35 @@
-const API_BASE_URL = 'https://api.esimaccess.com/api/v1/open'
+import axios from 'axios'
+
+const isDev = import.meta.env.DEV
+const API_BASE_URL = isDev ? 'http://localhost:3001/api' : 'https://api.esimaccess.com/api/v1/open'
 const ACCESS_CODE = import.meta.env.VITE_ESIM_API_KEY
 const SECRET_KEY = import.meta.env.VITE_ESIM_SECRET_KEY
+
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'RT-AccessCode': ACCESS_CODE,
+    'Content-Type': 'application/json'
+  }
+})
+
+// Add timestamp and signature to every request
+api.interceptors.request.use(async config => {
+  const timestamp = Date.now().toString()
+  const requestId = generateUUID()
+  const body = config.data || {}
+  
+  // Calculate signature
+  const signature = await calculateSignature(timestamp, requestId, body)
+
+  // Add headers
+  config.headers['RT-Timestamp'] = timestamp
+  config.headers['RT-RequestID'] = requestId
+  config.headers['RT-Signature'] = signature
+
+  return config
+})
 
 // Helper function to generate UUID for RequestID
 const generateUUID = () => {
@@ -42,113 +71,77 @@ const calculateSignature = async (timestamp, requestId, body) => {
     .toUpperCase()
 }
 
+// Helper function to format package data
+const formatPackageData = (pkg) => {
+  // Base price from API (divided by 10000 as per API format)
+  const basePrice = pkg.price / 10000
+  
+  // Add our markup (e.g., 30% markup)
+  const markup = 1.30
+  const finalPrice = basePrice * markup
+
+  return {
+    id: pkg.packageCode,
+    slug: pkg.slug,
+    name: pkg.name,
+    // Format price to always show 2 decimal places and add markup
+    price: Number(finalPrice.toFixed(2)),
+    currencyCode: pkg.currencyCode,
+    data: pkg.volume / (1024 * 1024 * 1024), // Convert bytes to GB
+    validityDays: pkg.unusedValidTime,
+    duration: pkg.duration,
+    durationUnit: pkg.durationUnit.toLowerCase(),
+    description: pkg.description,
+    speed: pkg.speed,
+    smsSupported: pkg.smsStatus > 0,
+    networks: pkg.locationNetworkList?.map(loc => ({
+      country: loc.locationName,
+      flag: loc.locationLogo,
+      operators: loc.operatorList?.map(op => ({
+        name: op.operatorName,
+        type: op.networkType
+      }))
+    }))
+  }
+}
+
 export const esimApi = {
-  // Get all products/plans
   getProducts: async () => {
     try {
-      const requestId = generateUUID()
-      const timestamp = Date.now().toString()
-      const body = {
-        type: 'BASE'
-      }
-      const signature = await calculateSignature(timestamp, requestId, body)
-
-      const response = await fetch(`${API_BASE_URL}/package/list`, {
-        method: 'POST',
-        headers: {
-          'RT-AccessCode': ACCESS_CODE,
-          'RT-RequestID': requestId,
-          'RT-Timestamp': timestamp,
-          'RT-Signature': signature,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
+      const response = await api.post('/package/list', {
+        type: 'BASE',
+        locationCode: '!GL' // Get global packages
       })
 
-      if (!response.ok) {
-        console.error('Response not OK:', await response.text())
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (!response.data.success) {
+        throw new Error(response.data.errorMessage || 'Failed to fetch packages')
       }
 
-      const data = await response.json()
-      console.log('API Response:', data)
-      
-      if (!data.success) {
-        throw new Error(data.errorMsg || 'Failed to fetch products')
-      }
-
-      return data.obj.packageList
+      return response.data.obj.packageList.map(formatPackageData)
     } catch (error) {
-      console.error('Error fetching products:', error)
+      console.error('API Error:', error)
       throw new Error('Failed to fetch products')
     }
   },
 
-  // Get specific product details
-  getProduct: async (packageCode) => {
+  purchaseEsim: async (packageInfo) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/package/list`, {
-        method: 'POST',
-        headers: {
-          'RT-AccessCode': ACCESS_CODE,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'BASE',
-          packageCode
-        })
+      const response = await api.post('/esim/order', {
+        transactionId: `order-${Date.now()}`,
+        packageInfoList: [{
+          packageCode: packageInfo.id,
+          count: 1,
+          price: packageInfo.price * 10000 // Convert back to API format
+        }]
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (!response.data.success) {
+        throw new Error(response.data.errorMessage || 'Failed to order eSIM')
       }
 
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.errorMsg || 'Failed to fetch product details')
-      }
-
-      return data.obj.packageList[0]
+      return response.data.obj
     } catch (error) {
-      console.error('Error fetching product:', error)
-      throw new Error('Failed to fetch product details')
-    }
-  },
-
-  // Purchase eSIM
-  purchaseEsim: async (packageCode, count = 1) => {
-    try {
-      const transactionId = `txn_${Date.now()}`  // Generate unique transaction ID
-      
-      const response = await fetch(`${API_BASE_URL}/esim/order`, {
-        method: 'POST',
-        headers: {
-          'RT-AccessCode': ACCESS_CODE,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          transactionId,
-          packageInfoList: [{
-            packageCode,
-            count
-          }]
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.errorMsg || 'Failed to complete purchase')
-      }
-
-      return data.obj
-    } catch (error) {
-      console.error('Error purchasing eSIM:', error)
+      console.error('Order Error:', error)
       throw new Error('Failed to complete purchase')
     }
   }
