@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import PaymentProcessor from '../components/PaymentProcessor'
 import { esimApi } from '../config/api'
 import './Checkout.css'
 
 function Checkout() {
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const { product } = location.state || {}
   const [step, setStep] = useState('payment') // 'payment' or 'activation'
   const [esimDetails, setEsimDetails] = useState(null)
   const [error, setError] = useState(null)
+  const [showAuthPrompt, setShowAuthPrompt] = useState(!user)
 
   if (!product) {
     navigate('/products')
@@ -44,6 +47,36 @@ function Checkout() {
 
   return (
     <div className="checkout-container">
+      {/* Auth Suggestion Modal */}
+      {showAuthPrompt && (
+        <div className="auth-modal-overlay">
+          <div className="auth-modal">
+            <h2>Create an Account?</h2>
+            <p>Creating an account lets you:</p>
+            <ul>
+              <li>Track your eSIM usage</li>
+              <li>Manage multiple eSIMs</li>
+              <li>Access purchase history</li>
+              <li>Get support when needed</li>
+            </ul>
+            <div className="auth-modal-buttons">
+              <Link to="/login" className="login-btn" state={{ from: location }}>
+                Log In
+              </Link>
+              <Link to="/signup" className="signup-btn" state={{ from: location }}>
+                Sign Up
+              </Link>
+              <button 
+                className="skip-btn"
+                onClick={() => setShowAuthPrompt(false)}
+              >
+                Continue as Guest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="checkout-progress">
         <div className={`progress-step ${step === 'payment' ? 'active' : ''}`}>
           <div className="step-number">1</div>

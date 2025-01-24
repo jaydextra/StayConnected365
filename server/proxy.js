@@ -13,10 +13,9 @@ const proxyOptions = {
   target: 'https://api.esimaccess.com',
   changeOrigin: true,
   pathRewrite: {
-    '^/api': '/api/v1/open' // Remove /api and add /api/v1/open
+    '^/api': '/api/v1/open'
   },
   onProxyReq: (proxyReq, req, res) => {
-    // Add the required headers
     proxyReq.setHeader('RT-AccessCode', process.env.VITE_ESIM_API_KEY)
     if (req.body) {
       const bodyData = JSON.stringify(req.body)

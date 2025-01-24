@@ -144,6 +144,42 @@ export const esimApi = {
       console.error('eSIM Order Error:', error)
       throw new Error('Failed to complete eSIM purchase: ' + error.message)
     }
+  },
+
+  queryEsims: async ({ orderNo, iccid, pager }) => {
+    try {
+      const response = await api.post('/esim/query', {
+        orderNo,
+        iccid,
+        pager
+      })
+
+      if (!response.data.success) {
+        throw new Error(response.data.errorMessage || 'Failed to fetch eSIM details')
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Query eSIMs Error:', error)
+      throw new Error('Failed to fetch eSIM details: ' + error.message)
+    }
+  },
+
+  cancelEsim: async ({ esimTranNo }) => {
+    try {
+      const response = await api.post('/esim/cancel', {
+        esimTranNo
+      })
+
+      if (!response.data.success) {
+        throw new Error(response.data.errorMessage || 'Failed to cancel eSIM')
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Cancel eSIM Error:', error)
+      throw new Error('Failed to cancel eSIM: ' + error.message)
+    }
   }
 }
 
