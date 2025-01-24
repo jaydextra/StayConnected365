@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   FaBolt, 
   FaMobileAlt, 
@@ -7,12 +8,16 @@ import {
   FaGlobeAmericas,
   FaShieldAlt,
   FaClock,
-  FaPiggyBank
+  FaPiggyBank,
+  FaUsers,
+  FaServer,
+  FaHeadset
 } from 'react-icons/fa'
 import './Home.css'
 
 function Home() {
   const [activeFeature, setActiveFeature] = useState(0)
+  const navigate = useNavigate()
 
   const esimFeatures = [
     {
@@ -41,6 +46,37 @@ function Home() {
     }
   ]
 
+  const stats = [
+    {
+      number: "190+",
+      label: "Countries Covered",
+      icon: <FaGlobeAmericas />,
+      duration: 2
+    },
+    {
+      number: "100+",
+      label: "Network Partners",
+      icon: <FaUsers />,
+      duration: 2.5
+    },
+    {
+      number: "99.9%",
+      label: "Uptime",
+      icon: <FaServer />,
+      duration: 3
+    },
+    {
+      number: "24/7",
+      label: "Support",
+      icon: <FaHeadset />,
+      duration: 1
+    }
+  ]
+
+  const handleViewPlans = () => {
+    navigate('/products')
+  }
+
   return (
     <div className="home">
       <section className="hero">
@@ -50,7 +86,7 @@ function Home() {
             Stay connected in 190+ countries with instant eSIM activation
           </p>
           <div className="cta-buttons">
-            <button className="cta-primary">View Plans</button>
+            <button className="cta-primary" onClick={handleViewPlans}>View Plans</button>
             <button className="cta-secondary">How It Works</button>
           </div>
         </div>
@@ -166,6 +202,61 @@ function Home() {
               <h3>Connect & Go</h3>
               <p>Scan, install, and stay connected wherever you are</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="testimonials">
+        <div className="content-wrapper">
+          <h2>What Our Customers Say</h2>
+          <div className="testimonials-grid">
+            {[
+              {
+                name: "Sarah Johnson",
+                role: "Digital Nomad",
+                text: "StayConnected365 has been a game-changer for my remote work lifestyle. Seamless connectivity wherever I go!",
+                rating: 5
+              },
+              {
+                name: "Michael Chen",
+                role: "Business Traveler",
+                text: "The best eSIM service I've used. Quick activation and reliable connection across multiple countries.",
+                rating: 5
+              },
+              {
+                name: "Emma Rodriguez",
+                role: "Travel Blogger",
+                text: "Finally, an affordable solution for staying connected while traveling. Love the flexible plans!",
+                rating: 5
+              }
+            ].map((testimonial, index) => (
+              <div key={index} className="testimonial-card">
+                <div className="stars">
+                  {"★".repeat(testimonial.rating)}
+                </div>
+                <p className="quote">{testimonial.text}</p>
+                <div className="author">
+                  <strong>{testimonial.name}</strong>
+                  <span>{testimonial.role}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="stats">
+        <div className="content-wrapper">
+          <div className="stats-grid">
+            {stats.map((stat, index) => (
+              <div key={index} className="stat-card" style={{ '--delay': `${index * 0.2}s` }}>
+                <div className="stat-icon">{stat.icon}</div>
+                <div className="stat-number" style={{ '--duration': `${stat.duration}s` }}>
+                  {stat.number}
+                </div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

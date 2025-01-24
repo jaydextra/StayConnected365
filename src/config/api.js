@@ -22,16 +22,24 @@ export const esimApi = {
         locationCode: '!GL'
       })
 
+      if (!globalResponse.data.success) {
+        throw new Error(globalResponse.data.errorMessage || 'Failed to fetch global plans')
+      }
+
       // Then get regional plans
       const regionalResponse = await api.post('/package/list', {
         type: 'BASE',
         locationCode: '!RG'
       })
 
+      if (!regionalResponse.data.success) {
+        throw new Error(regionalResponse.data.errorMessage || 'Failed to fetch regional plans')
+      }
+
       // Combine and format all plans
       const allPlans = [
-        ...globalResponse.data.obj.packageList,
-        ...regionalResponse.data.obj.packageList
+        ...(globalResponse.data.obj?.packageList || []),
+        ...(regionalResponse.data.obj?.packageList || [])
       ]
 
       return allPlans.map(pkg => ({
@@ -62,14 +70,19 @@ export const esimApi = {
       }))
 
     } catch (error) {
-      console.error('API Error:', error)
-      throw new Error('Failed to fetch products')
+      console.error('API Error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
+      throw new Error(error.response?.data?.errorMessage || error.message || 'Failed to fetch products')
     }
   },
 
   purchaseEsim: async (packageInfo) => {
     try {
-      const response = await api.post('/esim/order', {
+      // Step 1: Create the order
+      const orderResponse = await api.post('/esim/order', {
         transactionId: `order-${Date.now()}`,
         packageInfoList: [{
           packageCode: packageInfo.id,
@@ -78,14 +91,58 @@ export const esimApi = {
         }]
       })
 
-      if (!response.data.success) {
-        throw new Error(response.data.errorMessage || 'Failed to order eSIM')
+      if (!orderResponse.data.success) {
+        throw new Error(orderResponse.data.errorMessage || 'Failed to create eSIM order')
       }
 
-      return response.data.obj
+      const orderNo = orderResponse.data.obj.orderNo
+
+      // Step 2: Query the order details (with retry logic for async processing)
+      const maxRetries = 10
+      const retryDelay = 3000 // 3 seconds
+      
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          const queryResponse = await api.post('/esim/query', {
+            orderNo: orderNo,
+            pager: {
+              pageNum: 1,
+              pageSize: 5  // Minimum allowed value is 5
+            }
+          })
+
+          if (queryResponse.data.success && 
+              queryResponse.data.obj?.esimList?.[0]) {
+            const esim = queryResponse.data.obj.esimList[0]
+            
+            return {
+              qrCode: esim.qrCodeUrl,
+              activationCode: esim.ac,
+              iccid: esim.iccid,
+              imsi: esim.imsi,
+              expiryDate: esim.expiredTime,
+              status: esim.esimStatus,
+              orderNo: esim.orderNo
+            }
+          }
+
+          // If profiles are still being allocated, wait and retry
+          if (queryResponse.data.errorCode === '200010') {
+            await new Promise(resolve => setTimeout(resolve, retryDelay))
+            continue
+          }
+
+          throw new Error(queryResponse.data.errorMessage || 'Failed to fetch eSIM details')
+        } catch (error) {
+          if (i === maxRetries - 1) throw error
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        }
+      }
+
+      throw new Error('Timeout waiting for eSIM allocation')
     } catch (error) {
-      console.error('Order Error:', error)
-      throw new Error('Failed to complete purchase')
+      console.error('eSIM Order Error:', error)
+      throw new Error('Failed to complete eSIM purchase: ' + error.message)
     }
   }
 }
