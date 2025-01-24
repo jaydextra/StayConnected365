@@ -1,6 +1,4 @@
-const API_BASE_URL = import.meta.env.DEV 
-  ? 'http://localhost:3001/api'  // Development
-  : 'https://api.esimaccess.com/api/v1/open' // Production
+const API_BASE_URL = 'https://api.esimaccess.com/api/v1/open'
 const ACCESS_CODE = import.meta.env.VITE_ESIM_API_KEY
 const SECRET_KEY = import.meta.env.VITE_ESIM_SECRET_KEY
 
@@ -48,18 +46,32 @@ export const esimApi = {
   // Get all products/plans
   getProducts: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products`, {
+      const requestId = generateUUID()
+      const timestamp = Date.now().toString()
+      const body = {
+        type: 'BASE'
+      }
+      const signature = await calculateSignature(timestamp, requestId, body)
+
+      const response = await fetch(`${API_BASE_URL}/package/list`, {
         method: 'POST',
         headers: {
+          'RT-AccessCode': ACCESS_CODE,
+          'RT-RequestID': requestId,
+          'RT-Timestamp': timestamp,
+          'RT-Signature': signature,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(body)
       })
 
       if (!response.ok) {
+        console.error('Response not OK:', await response.text())
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('API Response:', data)
       
       if (!data.success) {
         throw new Error(data.errorMsg || 'Failed to fetch products')
