@@ -5,6 +5,8 @@ const axios = require('axios')
 const crypto = require('crypto')
 
 const app = express()
+
+// Simple CORS setup - allow all origins for now
 app.use(cors())
 app.use(express.json())
 
@@ -22,7 +24,7 @@ const generateUUID = () => {
 }
 
 // Helper function to calculate signature
-const calculateSignature = async (timestamp, requestId, body) => {
+const calculateSignature = (timestamp, requestId, body) => {
   const signData = `${timestamp}${requestId}${ACCESS_CODE}${JSON.stringify(body)}`
   return crypto
     .createHmac('sha256', SECRET_KEY)
@@ -35,7 +37,7 @@ app.post('/api/*', async (req, res) => {
   try {
     const timestamp = Date.now().toString()
     const requestId = generateUUID()
-    const signature = await calculateSignature(timestamp, requestId, req.body)
+    const signature = calculateSignature(timestamp, requestId, req.body)
 
     const response = await axios({
       method: 'post',
@@ -60,7 +62,7 @@ app.post('/api/*', async (req, res) => {
   }
 })
 
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
-  console.log(`Proxy server running on http://localhost:${PORT}`)
+  console.log(`Server running on port ${PORT}`)
 }) 

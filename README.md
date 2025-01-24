@@ -15,15 +15,13 @@ A modern eSIM management platform that helps travelers stay connected worldwide.
 
 - 📱 Easy eSIM activation and management
 - 🌍 Global coverage in 190+ countries
-- 🔐 Secure authentication with email and Google sign-in
-- 📊 Data usage tracking and management
+- 🔐 Secure authentication
 - 💳 Simple plan selection and activation
-- 📱 Device compatibility checker
 - 👤 User account dashboard
 
 ## Environment Setup
 
-Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the root directory with:
 
 ```plaintext
 # Firebase Configuration
@@ -33,7 +31,6 @@ VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_firebase_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
 
 # eSIM API Configuration
 VITE_ESIM_API_KEY=your_esim_api_key
@@ -137,7 +134,6 @@ VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
 VITE_FIREBASE_APP_ID=your_firebase_app_id
-VITE_FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
 
 # eSIM API Configuration
 VITE_ESIM_API_KEY=your_esim_api_key
