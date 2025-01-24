@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { planReference } from '../data/plans'
 
 const isDev = import.meta.env.DEV
 const API_BASE_URL = 'http://localhost:3001/api'  // Always use local server
@@ -15,16 +16,51 @@ const api = axios.create({
 export const esimApi = {
   getProducts: async () => {
     try {
-      const response = await api.post('/package/list', {
+      // First get global plans
+      const globalResponse = await api.post('/package/list', {
         type: 'BASE',
-        locationCode: '!GL' // Get global packages
+        locationCode: '!GL'
       })
 
-      if (!response.data.success) {
-        throw new Error(response.data.errorMessage || 'Failed to fetch packages')
-      }
+      // Then get regional plans
+      const regionalResponse = await api.post('/package/list', {
+        type: 'BASE',
+        locationCode: '!RG'
+      })
 
-      return response.data.obj.packageList.map(formatPackageData)
+      // Combine and format all plans
+      const allPlans = [
+        ...globalResponse.data.obj.packageList,
+        ...regionalResponse.data.obj.packageList
+      ]
+
+      return allPlans.map(pkg => ({
+        id: pkg.packageCode,
+        name: pkg.name,
+        slug: pkg.slug,
+        price: pkg.price / 10000,
+        data: pkg.volume / (1024 * 1024 * 1024),
+        duration: pkg.duration,
+        durationUnit: pkg.durationUnit.toLowerCase(),
+        validity: pkg.unusedValidTime,
+        speed: pkg.speed,
+        smsSupported: pkg.smsStatus > 0,
+        type: pkg.location.includes(',') ? 'Multi-Area' : 'Single',
+        region: planReference.getRegion(pkg.location),
+        coverage: pkg.location.split(',').map(code => planReference.getCountryName(code)),
+        networks: pkg.locationNetworkList?.map(loc => ({
+          country: loc.locationName,
+          flag: loc.locationLogo,
+          operators: loc.operatorList?.map(op => ({
+            name: op.operatorName,
+            type: op.networkType
+          }))
+        })),
+        description: pkg.description,
+        topupSupported: pkg.supportTopUpType === 2,
+        breakoutIp: pkg.ipExport
+      }))
+
     } catch (error) {
       console.error('API Error:', error)
       throw new Error('Failed to fetch products')
@@ -54,32 +90,15 @@ export const esimApi = {
   }
 }
 
-// Keep the formatPackageData helper
-const formatPackageData = (pkg) => {
-  const basePrice = pkg.price / 10000
-  const markup = 1.30
-  const finalPrice = basePrice * markup
-
-  return {
-    id: pkg.packageCode,
-    slug: pkg.slug,
-    name: pkg.name,
-    price: Number(finalPrice.toFixed(2)),
-    currencyCode: pkg.currencyCode,
-    data: pkg.volume / (1024 * 1024 * 1024),
-    validityDays: pkg.unusedValidTime,
-    duration: pkg.duration,
-    durationUnit: pkg.durationUnit.toLowerCase(),
-    description: pkg.description,
-    speed: pkg.speed,
-    smsSupported: pkg.smsStatus > 0,
-    networks: pkg.locationNetworkList?.map(loc => ({
-      country: loc.locationName,
-      flag: loc.locationLogo,
-      operators: loc.operatorList?.map(op => ({
-        name: op.operatorName,
-        type: op.networkType
-      }))
-    }))
+// Helper to determine region from location codes
+function getRegionFromLocation(location) {
+  if (location === '!GL') return 'Global'
+  if (location.includes(',')) {
+    // Check location codes to determine region
+    if (location.match(/US|CA|MX/)) return 'North America'
+    if (location.match(/JP|KR|CN|HK/)) return 'East Asia'
+    if (location.match(/GB|FR|DE|IT|ES/)) return 'Europe'
+    // Add more region detection as needed
   }
+  return 'Other'
 } 
