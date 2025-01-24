@@ -6,16 +6,16 @@
 }
 
 :root {
-  /* Modern Color Palette */
-  --primary: #2563eb;
-  --primary-dark: #1e40af;
-  --primary-light: #60a5fa;
-  --secondary: #0f172a;
-  --accent: #8b5cf6;
+  /* Modern Color Palette - Softer Colors */
+  --primary: #4f46e5;  /* Softer indigo */
+  --primary-dark: #3730a3;
+  --primary-light: #818cf8;
+  --secondary: #1e293b;  /* Softer slate */
+  --accent: #8b5cf6;    /* Softer purple */
   
   /* Text Colors */
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
+  --text-primary: #334155;  /* Softer text */
+  --text-secondary: #64748b;
   --text-light: #94a3b8;
   
   /* Background Colors */

@@ -7,22 +7,31 @@ import Contact from './pages/Contact'
 import Account from './pages/Account'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
+import FAQ from './pages/FAQ'
+import Login from './pages/Login'
+import Signup from './pages/Signup'
+import { AuthProvider } from './context/AuthContext'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="products" element={<Products />} />
-          <Route path="how-it-works" element={<HowItWorks />} />
-          <Route path="contact" element={<Contact />} />
-          <Route path="account" element={<Account />} />
-          <Route path="terms" element={<Terms />} />
-          <Route path="privacy" element={<Privacy />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="products" element={<Products />} />
+            <Route path="how-it-works" element={<HowItWorks />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="account" element={<Account />} />
+            <Route path="terms" element={<Terms />} />
+            <Route path="privacy" element={<Privacy />} />
+            <Route path="faq" element={<FAQ />} />
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
 
