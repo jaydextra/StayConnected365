@@ -2,7 +2,9 @@ import axios from 'axios'
 import { planReference } from '../data/plans'
 
 const isDev = import.meta.env.DEV
-const API_BASE_URL = 'http://localhost:3001/api'  // Always use local server
+const API_BASE_URL = isDev 
+  ? 'http://localhost:3001/api'
+  : '/api'  // This will use the current domain in production
 
 // Create axios instance with default config
 const api = axios.create({
