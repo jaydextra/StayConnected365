@@ -2,9 +2,13 @@ import axios from 'axios'
 import { planReference } from '../data/plans'
 
 const isDev = import.meta.env.DEV
+console.log('Environment:', isDev ? 'development' : 'production')
+
 const API_BASE_URL = isDev 
   ? 'http://localhost:3001/api'
   : '/api'  // Use relative URL in production
+
+console.log('API URL:', API_BASE_URL)
 
 // Create axios instance with default config
 const api = axios.create({
