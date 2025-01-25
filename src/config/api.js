@@ -7,7 +7,7 @@ console.log('Environment:', isDev ? 'development' : 'production')
 
 const API_BASE_URL = isDev 
   ? 'http://localhost:3001/api'
-  : `${window.location.origin}/api`  // Use the current domain
+  : '/api'  // Just use relative path in production
 
 console.log('API URL:', API_BASE_URL)
 
@@ -19,7 +19,7 @@ const api = axios.create({
   }
 })
 
-// Remove the signature calculation from frontend since it's handled by proxy
+// Export the configured API client
 export const esimApi = {
   getProducts: async () => {
     try {
