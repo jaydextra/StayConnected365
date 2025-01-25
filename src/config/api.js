@@ -1,12 +1,13 @@
 import axios from 'axios'
 import { planReference } from '../data/plans'
 
-const isDev = import.meta.env.DEV
+// Determine if we're in development by checking the hostname
+const isDev = window.location.hostname === 'localhost'
 console.log('Environment:', isDev ? 'development' : 'production')
 
 const API_BASE_URL = isDev 
   ? 'http://localhost:3001/api'
-  : '/api'  // Use relative URL in production
+  : `${window.location.origin}/api`  // Use the current domain
 
 console.log('API URL:', API_BASE_URL)
 
