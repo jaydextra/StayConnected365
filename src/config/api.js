@@ -4,7 +4,7 @@ import { planReference } from '../data/plans'
 const isDev = import.meta.env.DEV
 const API_BASE_URL = isDev 
   ? 'http://localhost:3001/api'
-  : '/api'  // This will use the current domain in production
+  : '/api'  // Use relative URL in production - this will use whatever domain the app is hosted on
 
 // Create axios instance with default config
 const api = axios.create({
