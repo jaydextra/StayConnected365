@@ -87,21 +87,9 @@ app.post('/api/create-payment-intent', async (req, res) => {
 
 app.post('/api/*', async (req, res) => {
   try {
-    // Validate required environment variables
-    if (!ACCESS_CODE || !SECRET_KEY) {
-      throw new Error('Missing required environment variables')
-    }
-
     const timestamp = Date.now().toString()
     const requestId = generateUUID()
     const signature = calculateSignature(timestamp, requestId, req.body)
-
-    console.log('Making request to eSIM API:', {
-      path: req.path,
-      body: req.body,
-      timestamp,
-      requestId
-    })
 
     const response = await axios({
       method: 'post',
@@ -118,7 +106,6 @@ app.post('/api/*', async (req, res) => {
 
     console.log('eSIM API Response:', response.data)
     res.json(response.data)
-
   } catch (error) {
     console.error('Proxy Error:', {
       message: error.message,
