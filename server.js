@@ -4,6 +4,7 @@ const cors = require('cors')
 const axios = require('axios')
 const crypto = require('crypto')
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const { createProxyMiddleware } = require('http-proxy-middleware')
 
 const app = express()
 
@@ -14,6 +15,23 @@ app.use(express.json())
 const API_BASE_URL = 'https://api.esimaccess.com/api/v1/open'
 const ACCESS_CODE = process.env.VITE_ESIM_API_KEY
 const SECRET_KEY = process.env.VITE_ESIM_SECRET_KEY
+
+// Replace the current development middleware with this
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static('dist'))
+} else {
+  // Proxy all non-API requests to Vite dev server
+  app.use(
+    '/',
+    createProxyMiddleware({
+      target: 'http://localhost:5173',
+      changeOrigin: true,
+      ws: true,
+      logLevel: 'debug',
+      pathFilter: (path) => !path.startsWith('/api'),
+    })
+  )
+}
 
 // Add request logging middleware
 app.use((req, res, next) => {
@@ -136,7 +154,7 @@ app.post('/api/*', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 3001
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
   console.log(`API Key configured: ${!!ACCESS_CODE}`)
   console.log(`Secret Key configured: ${!!SECRET_KEY}`)
