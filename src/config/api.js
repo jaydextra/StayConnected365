@@ -1,15 +1,10 @@
 import axios from 'axios'
 import { planReference } from '../data/plans'
 
-// Determine if we're in development by checking the hostname
-const isDev = window.location.hostname === 'localhost'
-console.log('Environment:', isDev ? 'development' : 'production')
-
-const API_BASE_URL = isDev 
-  ? 'http://localhost:3001/api'
-  : '/api'  // Just use relative path in production
-
-console.log('API URL:', API_BASE_URL)
+// For Firebase Functions, we'll use different base URLs
+const API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://stayconnected365-api.onrender.com/api'  // Your Render URL
+  : 'http://localhost:3001/api';              // Local development server
 
 // Create axios instance with default config
 const api = axios.create({
@@ -27,27 +22,27 @@ export const esimApi = {
       const globalResponse = await api.post('/package/list', {
         type: 'BASE',
         locationCode: '!GL'
-      })
+      });
 
       if (!globalResponse.data.success) {
-        throw new Error(globalResponse.data.errorMessage || 'Failed to fetch global plans')
+        throw new Error(globalResponse.data.errorMessage || 'Failed to fetch global plans');
       }
 
       // Then get regional plans
       const regionalResponse = await api.post('/package/list', {
         type: 'BASE',
         locationCode: '!RG'
-      })
+      });
 
       if (!regionalResponse.data.success) {
-        throw new Error(regionalResponse.data.errorMessage || 'Failed to fetch regional plans')
+        throw new Error(regionalResponse.data.errorMessage || 'Failed to fetch regional plans');
       }
 
       // Combine and format all plans
       const allPlans = [
         ...(globalResponse.data.obj?.packageList || []),
         ...(regionalResponse.data.obj?.packageList || [])
-      ]
+      ];
 
       return allPlans.map(pkg => ({
         id: pkg.packageCode,
@@ -74,15 +69,15 @@ export const esimApi = {
         description: pkg.description,
         topupSupported: pkg.supportTopUpType === 2,
         breakoutIp: pkg.ipExport
-      }))
+      }));
 
     } catch (error) {
       console.error('API Error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status
-      })
-      throw new Error(error.response?.data?.errorMessage || error.message || 'Failed to fetch products')
+      });
+      throw new Error(error.response?.data?.errorMessage || error.message || 'Failed to fetch products');
     }
   },
 
@@ -201,4 +196,6 @@ function getRegionFromLocation(location) {
     // Add more region detection as needed
   }
   return 'Other'
-} 
+}
+
+export default API_BASE_URL; 

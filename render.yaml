@@ -1,11 +1,13 @@
 services:
   - type: web
-    name: stayconnected365-proxy
+    name: stayconnected365-api
     env: node
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: node server/index.js
     envVars:
-      - key: VITE_ESIM_API_KEY
+      - key: STRIPE_SECRET_KEY
         sync: false
-      - key: VITE_ESIM_SECRET_KEY
+      - key: ESIM_API_KEY
+        sync: false
+      - key: ESIM_SECRET_KEY
         sync: false 

@@ -12,6 +12,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Checkout from './pages/Checkout'
 import { AuthProvider } from './context/AuthContext'
+import { app, analytics } from './config/firebase'
 
 function App() {
   return (
