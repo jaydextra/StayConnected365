@@ -102,70 +102,74 @@
 }
 
 .coverage-section {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid #e5e7eb;
 }
 
 .coverage-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem;
-  border-radius: 6px;
+  padding: 1rem 0;
   cursor: pointer;
-  transition: background-color 0.2s;
-  margin-bottom: 0;
-}
-
-.coverage-header:hover {
-  background-color: rgba(0, 0, 0, 0.05);
 }
 
 .coverage-title {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  color: #333;
-  font-weight: 500;
+  gap: 0.5rem;
 }
 
 .coverage-count {
-  background: #e3f2fd;
-  color: #1976d2;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  color: #64748b;
+  font-size: 0.9rem;
 }
 
 .collapse-button {
   background: none;
   border: none;
-  padding: 0.25rem;
+  color: #64748b;
   cursor: pointer;
-  color: #666;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s;
+  padding: 0.25rem;
+}
+
+.coverage-details {
+  padding: 1rem 0;
+  border-top: 1px solid #e5e7eb;
 }
 
 .coverage-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  transition: all 0.3s ease-in-out;
-  max-height: 500px;
-  opacity: 1;
-  overflow: hidden;
-  margin-top: 0.75rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
-.coverage-list.collapsed {
-  max-height: 0;
-  opacity: 0;
-  margin-top: 0;
+.country-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.country-name {
+  font-weight: 500;
+  color: #334155;
+}
+
+.operator-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.operator {
+  font-size: 0.85rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
 
 .country-tag {
@@ -912,13 +916,15 @@ input[type="range"]::-moz-range-thumb {
 
 .search-suggestions {
   position: absolute;
-  top: calc(100% + 4px);
+  top: 100%;
   left: 0;
   right: 0;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  z-index: 30;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 20;
   max-height: 300px;
   overflow-y: auto;
 }
@@ -926,15 +932,19 @@ input[type="range"]::-moz-range-thumb {
 .suggestion-item {
   padding: 0.75rem 1rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background-color 0.2s;
+  color: #334155;
 }
 
 .suggestion-item:hover {
-  background: #f0f0f0;
+  background-color: #f8fafc;
 }
 
 .search-bar {
   position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .plan-title {
@@ -1122,4 +1132,204 @@ input[type="range"]::-moz-range-thumb {
 .coverage-value {
   font-weight: 500;
   color: #334155;
+}
+
+.popular-destinations {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.destination-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.destination-btn {
+  padding: 0.5rem 1.5rem;
+  border: 1px solid var(--primary-color);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.destination-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+.try-global-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.try-global-btn:hover {
+  background: var(--primary-dark);
+}
+
+.search-prompt-container {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  border-radius: 24px;
+  margin: 2rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.search-prompt-content {
+  max-width: 800px;
+  width: 100%;
+  text-align: center;
+}
+
+.search-prompt-header {
+  margin-bottom: 3rem;
+}
+
+.globe-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+.search-prompt-header h2 {
+  font-size: 2.5rem;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.search-prompt-header p {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.destination-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  padding: 0 1rem;
+  max-width: 800px;
+  margin: 1.5rem auto;
+}
+
+.destination-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #eaeaea;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.destination-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+  border-color: var(--hover-color);
+}
+
+.destination-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.destination-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.destination-desc {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.quick-links-section {
+  margin-top: 3rem;
+}
+
+.quick-links {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.quick-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #eaeaea;
+  border-radius: 100px;
+  background: white;
+  color: #333;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-link-btn:hover {
+  background: #f5f7fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.country-flag {
+  font-size: 1.2rem;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .search-prompt-container {
+    padding: 1rem;
+  }
+
+  .search-prompt-header h2 {
+    font-size: 2rem;
+  }
+
+  .destination-grid {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .destination-card {
+    padding: 1.5rem;
+  }
+}
+
+/* Add tablet breakpoint */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .destination-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
 } 

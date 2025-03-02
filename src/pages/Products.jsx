@@ -33,6 +33,7 @@ function Products() {
 
   // Add initialized state to track if products have been loaded
   const [initialized, setInitialized] = useState(false)
+  const [searchPrompted, setSearchPrompted] = useState(false)
 
   // Add state for search input separate from filters
   const [searchInput, setSearchInput] = useState('')
@@ -156,31 +157,22 @@ function Products() {
   }
 
   // Update loadProducts function
-  const loadProducts = async () => {
-    if (loading || initialized) return
+  const loadProducts = async (searchTerm) => {
+    if (loading || (initialized && !searchTerm)) return
     setLoading(true)
     try {
-      console.log('Making API request...');
+      console.log('Making API request for:', searchTerm);
       
-      // Make multiple requests for different types of plans
+      // Only make the API request if we have a search term or it's the first load
       const requests = [
-        // Global plans
         fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'BASE', locationCode: '!GL' })
-        }),
-        // Regional plans
-        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'BASE', locationCode: '!RG' })
-        }),
-        // Some specific regions (example)
-        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'BASE', locationCode: 'US' })
+          body: JSON.stringify({ 
+            type: 'BASE',
+            // Only include locationCode if we have a search term
+            ...(searchTerm && { locationCode: searchTerm.toUpperCase() })
+          })
         })
       ];
 
@@ -282,6 +274,7 @@ function Products() {
       setFilteredProducts(formattedProducts);
       setLocations(groupLocationsByRegion(formattedProducts));
       setInitialized(true);
+      setSearchPrompted(false);
     } catch (err) {
       console.error('Error details:', err);
       setError(`Failed to fetch products: ${err.message}`);
@@ -292,8 +285,9 @@ function Products() {
 
   // Load products on mount
   useEffect(() => {
-    loadProducts()
-  }, []) // Only run once on mount
+    // Remove this or comment it out
+    // loadProducts()
+  }, [])
 
   // Update ranges when products load
   useEffect(() => {
@@ -422,55 +416,68 @@ function Products() {
     setFilteredProducts(filtered)
   }, [products, filters, ranges])
 
-  // Update handleSearch to be more comprehensive
+  // Add debounce utility
+  const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  };
+
+  // Update the handleSearch function
   const handleSearch = (input) => {
     setSearchInput(input)
-    setRegionSearch(input)
     
-    // Only load products if input looks like a region/country and we haven't loaded yet
-    if (!initialized && input.length >= 2) {
-      // Check if input matches any country names, regions, or plan types
-      const matchesCountry = Object.values(countryNames).some(name => 
-        name.toLowerCase().includes(input.toLowerCase())
-      )
-      
-      const matchesRegion = [
-        'global', 'europe', 'asia', 'north america', 'south america',
-        'africa', 'middle east', 'caribbean', 'central america',
-        'gulf states', 'united states', 'china', 'singapore'
-      ].some(region => region.includes(input.toLowerCase()))
-      
-      if (matchesCountry || matchesRegion) {
-        loadProducts()
-      }
-    }
-
-    if (input.length > 1) {
+    // Only show suggestions if we have 2 or more characters
+    if (input.length >= 2) {
       // Get suggestions from both countries and regions
       const countrySuggestions = Object.values(countryNames)
         .filter(name => name.toLowerCase().includes(input.toLowerCase()))
-      
+        .slice(0, 5)
+
       const regionSuggestions = [
         'Global Coverage', 'Europe', 'Asia Pacific',
         'North America', 'South America', 'Africa',
         'Middle East', 'Caribbean', 'Central America',
         'Gulf States', 'United States', 'China', 'Singapore'
-      ].filter(region => region.toLowerCase().includes(input.toLowerCase()))
-      
-      const allSuggestions = [...new Set([...regionSuggestions, ...countrySuggestions])]
-      setSearchSuggestions(allSuggestions.slice(0, 5))
+      ].filter(region => 
+        region.toLowerCase().includes(input.toLowerCase())
+      ).slice(0, 3)
+
+      setSearchSuggestions([...regionSuggestions, ...countrySuggestions].slice(0, 5))
     } else {
       setSearchSuggestions([])
     }
   }
 
-  // Debounced filter update
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters(prev => ({...prev, searchTerm: searchInput}))
-    }, 300)
+  // Update the handleSearchSelect function
+  const handleSearchSelect = (selection) => {
+    setSearchInput(selection)
+    setSearchSuggestions([])
+    setRegionSearch(selection)
+    setSearchPrompted(true)
+    setFilters(prev => ({...prev, searchTerm: selection}))
+    loadProducts(selection)
+  }
 
-    return () => clearTimeout(timer)
+  // Debounced search effect
+  const debouncedSearch = debounce((term) => {
+    if (term.length >= 2) {
+      setRegionSearch(term)
+      loadProducts(term)
+    }
+  }, 500) // Wait 500ms after user stops typing
+
+  // Update search input effect
+  useEffect(() => {
+    if (searchInput.length >= 2) {
+      debouncedSearch(searchInput)
+    }
   }, [searchInput])
 
   const handlePurchase = async (product) => {
@@ -526,7 +533,11 @@ function Products() {
           {searchInput && (
             <button 
               className="clear-search" 
-              onClick={() => handleSearch('')}
+              onClick={() => {
+                setSearchInput('')
+                setSearchSuggestions([])
+                setRegionSearch('')
+              }}
             >
               <FiX />
             </button>
@@ -538,7 +549,7 @@ function Products() {
               <div
                 key={index}
                 className="suggestion-item"
-                onClick={() => handleSearch(suggestion)}
+                onClick={() => handleSearchSelect(suggestion)}
               >
                 {suggestion}
               </div>
@@ -547,85 +558,87 @@ function Products() {
         )}
 
         {/* Always visible filters */}
-        <div className="filters-section">
-          {/* Single row with all filters */}
-          <div className="filter-row">
-            <div className="filter-group">
-              <h3>Duration</h3>
-              <div className="filter-options">
-                {[
-                  {value: 'all', label: 'All'},
-                  {value: '1 Day', label: '1 Day'},
-                  {value: '7 Days', label: '7 Days'},
-                  {value: '30 Days', label: '30 Days'},
-                  {value: '365 Days', label: '365 Days'}
-                ].map(({value, label}) => (
-                  <button
-                    key={value}
-                    className={`filter-chip ${filters.duration === value ? 'active' : ''}`}
-                    onClick={() => setFilters(prev => ({...prev, duration: value}))}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <h3>Data Amount</h3>
-              <div className="range-slider">
-                <input
-                  type="range"
-                  min={ranges.data.min}
-                  max={ranges.data.max}
-                  step={0.5}
-                  value={filters.maxData}
-                  onChange={e => {
-                    const target = e.target
-                    const progress = ((target.value - target.min) / (target.max - target.min)) * 100
-                    target.style.setProperty('--range-progress', `${progress}%`)
-                    setFilters(prev => ({
-                      ...prev,
-                      maxData: Number(target.value)
-                    }))
-                  }}
-                  style={{ '--range-progress': `${((filters.maxData - ranges.data.min) / (ranges.data.max - ranges.data.min)) * 100}%` }}
-                />
-                <div className="range-labels">
-                  <span>{ranges.data.min} GB</span>
-                  <span>{filters.maxData} GB</span>
+        {initialized && products.length > 0 && (
+          <div className="filters-section">
+            {/* Single row with all filters */}
+            <div className="filter-row">
+              <div className="filter-group">
+                <h3>Duration</h3>
+                <div className="filter-options">
+                  {[
+                    {value: 'all', label: 'All'},
+                    {value: '1 Day', label: '1 Day'},
+                    {value: '7 Days', label: '7 Days'},
+                    {value: '30 Days', label: '30 Days'},
+                    {value: '365 Days', label: '365 Days'}
+                  ].map(({value, label}) => (
+                    <button
+                      key={value}
+                      className={`filter-chip ${filters.duration === value ? 'active' : ''}`}
+                      onClick={() => setFilters(prev => ({...prev, duration: value}))}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
 
-            <div className="filter-group">
-              <h3>Price Range</h3>
-              <div className="range-slider">
-                <input
-                  type="range"
-                  min={ranges.price.min}
-                  max={ranges.price.max}
-                  step={0.5}
-                  value={filters.maxPrice}
-                  onChange={e => {
-                    const target = e.target
-                    const progress = ((target.value - target.min) / (target.max - target.min)) * 100
-                    target.style.setProperty('--range-progress', `${progress}%`)
-                    setFilters(prev => ({
-                      ...prev,
-                      maxPrice: Number(target.value)
-                    }))
-                  }}
-                  style={{ '--range-progress': `${((filters.maxPrice - ranges.price.min) / (ranges.price.max - ranges.price.min)) * 100}%` }}
-                />
-                <div className="range-labels">
-                  <span>{formatPrice(ranges.price.min)}</span>
-                  <span>{formatPrice(filters.maxPrice)}</span>
+              <div className="filter-group">
+                <h3>Data Amount</h3>
+                <div className="range-slider">
+                  <input
+                    type="range"
+                    min={ranges.data.min}
+                    max={ranges.data.max}
+                    step={0.5}
+                    value={filters.maxData}
+                    onChange={e => {
+                      const target = e.target
+                      const progress = ((target.value - target.min) / (target.max - target.min)) * 100
+                      target.style.setProperty('--range-progress', `${progress}%`)
+                      setFilters(prev => ({
+                        ...prev,
+                        maxData: Number(target.value)
+                      }))
+                    }}
+                    style={{ '--range-progress': `${((filters.maxData - ranges.data.min) / (ranges.data.max - ranges.data.min)) * 100}%` }}
+                  />
+                  <div className="range-labels">
+                    <span>{ranges.data.min} GB</span>
+                    <span>{filters.maxData} GB</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="filter-group">
+                <h3>Price Range</h3>
+                <div className="range-slider">
+                  <input
+                    type="range"
+                    min={ranges.price.min}
+                    max={ranges.price.max}
+                    step={0.5}
+                    value={filters.maxPrice}
+                    onChange={e => {
+                      const target = e.target
+                      const progress = ((target.value - target.min) / (target.max - target.min)) * 100
+                      target.style.setProperty('--range-progress', `${progress}%`)
+                      setFilters(prev => ({
+                        ...prev,
+                        maxPrice: Number(target.value)
+                      }))
+                    }}
+                    style={{ '--range-progress': `${((filters.maxPrice - ranges.price.min) / (ranges.price.max - ranges.price.min)) * 100}%` }}
+                  />
+                  <div className="range-labels">
+                    <span>{formatPrice(ranges.price.min)}</span>
+                    <span>{formatPrice(filters.maxPrice)}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Results */}
@@ -633,15 +646,71 @@ function Products() {
         <div className="loading">Loading plans...</div>
       ) : error ? (
         <div className="error">{error}</div>
-      ) : !initialized ? (
-        <div className="no-results search-prompt">
-          <FiSearch className="large-search-icon" />
-          <h2>Where are you traveling?</h2>
-          <p>Enter your destination to find the perfect eSIM plan.</p>
+      ) : !searchPrompted && !searchInput ? (
+        <div className="search-prompt-container">
+          <div className="search-prompt-content">
+            <div className="search-prompt-header">
+              <div className="globe-icon">🌎</div>
+              <h2>Where are you traveling?</h2>
+              <p>Find the perfect eSIM plan for your next adventure</p>
+            </div>
+
+            <div className="popular-destinations">
+              <h3>Popular Destinations</h3>
+              <div className="destination-grid">
+                {[
+                  { name: 'Europe', icon: '🇪🇺', color: '#4A90E2', desc: '30+ countries' },
+                  { name: 'USA', icon: '🇺🇸', color: '#E25B4A', desc: 'Nationwide coverage' },
+                  { name: 'Asia', icon: '🌏', color: '#50E3C2', desc: '15+ countries' }
+                ].map(dest => (
+                  <button 
+                    key={dest.name}
+                    onClick={() => handleSearchSelect(dest.name)}
+                    className="destination-card"
+                    style={{ '--hover-color': dest.color }}
+                  >
+                    <span className="destination-icon">{dest.icon}</span>
+                    <span className="destination-name">{dest.name}</span>
+                    <span className="destination-desc">{dest.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="quick-links-section">
+              <h3>Quick Links</h3>
+              <div className="quick-links">
+                {[
+                  { name: 'United Kingdom', flag: '🇬🇧', code: 'GB' },
+                  { name: 'Japan', flag: '🇯🇵', code: 'JP' },
+                  { name: 'Australia', flag: '🇦🇺', code: 'AU' },
+                  { name: 'Canada', flag: '🇨🇦', code: 'CA' },
+                  { name: 'Singapore', flag: '🇸🇬', code: 'SG' },
+                  { name: 'Thailand', flag: '🇹🇭', code: 'TH' }
+                ].map(country => (
+                  <button 
+                    key={country.code}
+                    onClick={() => handleSearchSelect(country.name)}
+                    className="quick-link-btn"
+                  >
+                    <span className="country-flag">{country.flag}</span>
+                    <span className="country-name">{country.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="no-results">
-          No plans found for {regionSearch}
+          <p>No plans found for {regionSearch}</p>
+          <p>Try searching for a different location or check our global plans.</p>
+          <button 
+            onClick={() => handleSearchSelect('Global')}
+            className="try-global-btn"
+          >
+            View Global Plans
+          </button>
         </div>
       ) : (
         <div className="products-grid">
@@ -705,23 +774,25 @@ function Products() {
                       )}
                     </button>
                   </div>
-                  <div className={`coverage-list ${
-                    collapsedCoverage.has(product.id) ? 'collapsed' : ''
-                  }`}>
-                    {product.coverage.map((code, idx) => (
-                      <span 
-                        key={idx}
-                        className={`country-tag ${
-                          filters.searchTerm && 
-                          getCountryName(code).toLowerCase().includes(filters.searchTerm.toLowerCase())
-                            ? 'highlighted'
-                            : ''
-                        }`}
-                      >
-                        {getCountryName(code)}
-                      </span>
-                    ))}
-                  </div>
+
+                  {!collapsedCoverage.has(product.id) && (
+                    <div className="coverage-details">
+                      <div className="coverage-list">
+                        {product.networks.map((network, index) => (
+                          <div key={index} className="country-item">
+                            <span className="country-name">{network.country}</span>
+                            <div className="operator-list">
+                              {network.operators.map((op, i) => (
+                                <span key={i} className="operator">
+                                  {op.operatorName} ({op.networkType})
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button 

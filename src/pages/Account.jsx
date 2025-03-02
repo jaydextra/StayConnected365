@@ -17,6 +17,16 @@ import {
 } from 'react-icons/fa'
 import './Account.css'
 import { esimApi } from '../config/api'
+import { db } from '../config/firebase'
+import { 
+  doc, 
+  collection, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  arrayUnion, 
+  serverTimestamp 
+} from 'firebase/firestore'
 
 function Account() {
   const { user } = useAuth()
@@ -25,6 +35,12 @@ function Account() {
   const [userEsims, setUserEsims] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [purchaseLoading, setPurchaseLoading] = useState(false)
+  const [usageLoading, setUsageLoading] = useState(false)
+  const [profileError, setProfileError] = useState(null)
+  const [purchaseError, setPurchaseError] = useState(null)
+  const [usageError, setUsageError] = useState(null)
 
   const handleLogout = async () => {
     try {
@@ -42,94 +58,130 @@ function Account() {
     setActiveTab('settings')
   }
 
+  const saveEsimToFirebase = async (esimData) => {
+    try {
+      const userRef = doc(db, 'users', user.uid)
+      const userDoc = await getDoc(userRef)
+
+      // Format the eSIM data to match your structure
+      const formattedEsim = {
+        ac: esimData.ac,
+        activateTime: esimData.activateTime,
+        activeType: esimData.activeType,
+        apn: esimData.apn,
+        currencyCode: esimData.currencyCode,
+        dataType: esimData.dataType,
+        description: esimData.description,
+        duration: esimData.duration,
+        durationUnit: esimData.durationUnit,
+        eid: esimData.eid,
+        esimStatus: esimData.esimStatus,
+        esimTranNo: esimData.esimTranNo,
+        expiredTime: esimData.expiredTime,
+        iccid: esimData.iccid,
+        imsi: esimData.imsi,
+        location: esimData.location,
+        locationNetworkList: esimData.locationNetworkList,
+        msisdn: esimData.msisdn,
+        name: esimData.name,
+        orderNo: esimData.orderNo,
+        orderUsage: esimData.orderUsage,
+        packageCode: esimData.packageCode,
+        packageDetails: esimData.packageDetails,
+        packageList: esimData.packageList,
+        pin: esimData.pin,
+        price: esimData.price,
+        puk: esimData.puk,
+        qrCodeUrl: esimData.qrCodeUrl,
+        status: esimData.status,
+        totalDataGB: esimData.totalDataGB,
+        totalVolume: esimData.totalVolume,
+        usedDataGB: esimData.usedDataGB,
+        validUntil: esimData.validUntil,
+        purchasedAt: serverTimestamp()
+      }
+
+      if (!userDoc.exists()) {
+        // Create new user document
+        await setDoc(userRef, {
+          email: user.email,
+          createdAt: serverTimestamp(),
+          esims: [formattedEsim]
+        })
+      } else {
+        // Update existing document
+        await updateDoc(userRef, {
+          esims: arrayUnion(formattedEsim)
+        })
+      }
+    } catch (error) {
+      console.error('Error saving eSIM to Firebase:', error)
+      throw error
+    }
+  }
+
   const fetchUserEsims = async () => {
     try {
-      setLoading(true);
-      
-      // First get all available packages
-      console.log('Fetching available packages...');
-      const packagesResponse = await fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'BASE' // Remove locationCode: '!GL' to get all packages
-        })
-      });
+      setLoading(true)
 
-      if (!packagesResponse.ok) {
-        throw new Error('Failed to fetch packages');
-      }
+      // First try to get from Firebase
+      const userRef = doc(db, 'users', user.uid)
+      const userDoc = await getDoc(userRef)
+      const cachedEsims = userDoc.exists() ? userDoc.data().esims || [] : []
 
-      const packagesData = await packagesResponse.json();
-      console.log('Packages Response:', packagesData);
-      
-      // Then get user's purchased eSIMs
-      console.log('Fetching user eSIMs...');
-      const userResponse = await fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/getUserEsims', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          pager: {
-            pageNum: 1,
-            pageSize: 20
-          }
-        })
-      });
+      // Then get fresh data from API
+      const [packagesData, userData] = await Promise.all([
+        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'BASE' })
+        }).then(res => res.json()),
+        
+        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/getUserEsims', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.uid,
+            pager: { pageNum: 1, pageSize: 20 }
+          })
+        }).then(res => res.json())
+      ])
 
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user eSIMs');
-      }
-
-      const userData = await userResponse.json();
-      console.log('User eSIMs Response:', userData);
-      
       if (!userData.success) {
-        throw new Error(userData.errorMsg || 'Failed to fetch user eSIMs');
+        throw new Error(userData.errorMsg || 'Failed to fetch user eSIMs')
       }
 
-      // Get the user's purchased eSIMs
-      const userEsims = userData.obj?.esimList || [];
-      console.log('User eSIMs:', userEsims);
-
-      // Combine package info with user eSIM data
+      const userEsims = userData.obj?.esimList || []
       const enrichedEsims = userEsims.map(esim => {
-        console.log('Processing eSIM:', esim);
         const packageInfo = packagesData.obj?.packageList?.find(
           pkg => pkg.packageCode === esim.packageList[0]?.packageCode
-        );
-        console.log('Found package info:', packageInfo);
+        )
         
-        return {
+        const enrichedEsim = {
           ...esim,
           ...packageInfo,
-          // Keep both original and enriched package data
           packageDetails: packageInfo,
-          // Format data values
           totalDataGB: ((esim.totalVolume || 0) / (1024 * 1024 * 1024)).toFixed(1),
           usedDataGB: ((esim.orderUsage || 0) / (1024 * 1024 * 1024)).toFixed(2),
           status: esim.esimStatus,
           validUntil: esim.expiredTime ? new Date(esim.expiredTime).toLocaleDateString() : 'Not activated'
-        };
-      });
+        }
 
-      console.log('Enriched eSIMs:', enrichedEsims);
-      setUserEsims(enrichedEsims);
+        // Save updated eSIM data to Firebase
+        saveEsimToFirebase(enrichedEsim)
+          .catch(err => console.error('Error saving to Firebase:', err))
+
+        return enrichedEsim
+      })
+
+      setUserEsims(enrichedEsims)
     } catch (err) {
-      console.error('Error details:', {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      });
-      setError(err.message);
+      console.error('Error details:', err)
+      setError(err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleCancelEsim = async (esimTranNo) => {
     try {
@@ -159,6 +211,88 @@ function Account() {
       setLoading(false);
     }
   };
+
+  // Add this function to track purchases
+  const trackPurchase = async (purchaseData) => {
+    try {
+      const userRef = doc(db, 'users', user.uid)
+      await updateDoc(userRef, {
+        purchases: arrayUnion({
+          ...purchaseData,
+          purchasedAt: serverTimestamp(),
+          status: 'completed',
+          transactionId: purchaseData.esimTranNo
+        })
+      })
+    } catch (error) {
+      console.error('Error tracking purchase:', error)
+    }
+  }
+
+  // Add this to handle successful purchases
+  const handleSuccessfulPurchase = async (purchaseData) => {
+    await trackPurchase(purchaseData)
+    await fetchUserEsims() // Refresh the eSIM list
+  }
+
+  // Add this function to update user profile
+  const updateUserProfile = async (profileData) => {
+    try {
+      const userRef = doc(db, 'users', user.uid)
+      await updateDoc(userRef, {
+        displayName: profileData.displayName,
+        phoneNumber: profileData.phoneNumber,
+        updatedAt: serverTimestamp(),
+        preferences: {
+          emailNotifications: profileData.emailNotifications,
+          usageAlerts: profileData.usageAlerts,
+          promotionalUpdates: profileData.promotionalUpdates
+        }
+      })
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      throw error
+    }
+  }
+
+  // Update the settings form submit handler
+  const handleSettingsSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      await updateUserProfile({
+        displayName: e.target.displayName.value,
+        phoneNumber: e.target.phoneNumber?.value,
+        emailNotifications: e.target.emailNotifications.checked,
+        usageAlerts: e.target.usageAlerts.checked,
+        promotionalUpdates: e.target.promotionalUpdates.checked
+      })
+      // Show success message
+    } catch (error) {
+      setError(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Add this function to track data usage
+  const updateDataUsage = async (esimId, usageData) => {
+    try {
+      const userRef = doc(db, 'users', user.uid)
+      const esimRef = doc(collection(userRef, 'esims'), esimId)
+      
+      await updateDoc(esimRef, {
+        usageHistory: arrayUnion({
+          timestamp: serverTimestamp(),
+          dataUsed: usageData.dataUsed,
+          remainingData: usageData.remainingData,
+          percentage: usageData.percentage
+        })
+      })
+    } catch (error) {
+      console.error('Error updating usage data:', error)
+    }
+  }
 
   useEffect(() => {
     if (activeTab === 'plans' || activeTab === 'usage') {
@@ -283,7 +417,7 @@ function Account() {
                 <h4>Profile Information</h4>
               </div>
               <div className="settings-card-content">
-                <form className="settings-form">
+                <form className="settings-form" onSubmit={handleSettingsSubmit}>
                   <div className="form-group">
                     <label>Display Name</label>
                     <input 
@@ -299,6 +433,26 @@ function Account() {
                       defaultValue={user.email} 
                       disabled 
                     />
+                  </div>
+                  <div className="form-group">
+                    <label>Phone Number</label>
+                    <input 
+                      type="text" 
+                      defaultValue={user.phoneNumber || ''} 
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email Notifications</label>
+                    <input type="checkbox" defaultChecked={user.preferences?.emailNotifications} />
+                  </div>
+                  <div className="form-group">
+                    <label>Usage Alerts</label>
+                    <input type="checkbox" defaultChecked={user.preferences?.usageAlerts} />
+                  </div>
+                  <div className="form-group">
+                    <label>Promotional Updates</label>
+                    <input type="checkbox" defaultChecked={user.preferences?.promotionalUpdates} />
                   </div>
                   <button type="submit" className="save-btn">Save Changes</button>
                 </form>
