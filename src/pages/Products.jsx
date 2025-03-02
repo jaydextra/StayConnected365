@@ -4,7 +4,7 @@ import { esimApi } from '../config/api'
 import './Products.css'
 import { FiSearch, FiFilter, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { countryNames, getCountryName } from '../data/countryNames'
-import { formatPlanName, formatPrice } from '../data/planFormatters'
+import { formatPlanName, formatPrice, formatDataAmount, formatDuration } from '../data/planFormatters'
 
 function Products() {
   const [products, setProducts] = useState([])
@@ -48,6 +48,9 @@ function Products() {
     data: { min: 0, max: 1000 },
     price: { min: 0, max: 1000 }
   })
+
+  // Add region search state
+  const [regionSearch, setRegionSearch] = useState('')
 
   // Group locations by region when products are fetched
   const groupLocationsByRegion = (products) => {
@@ -154,21 +157,138 @@ function Products() {
 
   // Update loadProducts function
   const loadProducts = async () => {
-    if (loading || initialized) return // Don't load if already loaded
+    if (loading || initialized) return
     setLoading(true)
     try {
-      const data = await esimApi.getProducts()
-      setProducts(data)
-      setFilteredProducts(data)
-      setLocations(groupLocationsByRegion(data))
-      setInitialized(true) // Mark as initialized
+      console.log('Making API request...');
+      
+      // Make multiple requests for different types of plans
+      const requests = [
+        // Global plans
+        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'BASE', locationCode: '!GL' })
+        }),
+        // Regional plans
+        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'BASE', locationCode: '!RG' })
+        }),
+        // Some specific regions (example)
+        fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'BASE', locationCode: 'US' })
+        })
+      ];
+
+      const responses = await Promise.all(requests);
+      const jsonResponses = await Promise.all(responses.map(r => r.json()));
+      
+      // Use a Map to deduplicate packages by packageCode
+      const packagesMap = new Map();
+      jsonResponses.forEach(response => {
+        if (response.success && response.obj?.packageList) {
+          response.obj.packageList.forEach(pkg => {
+            if (pkg.packageCode) {
+              packagesMap.set(pkg.packageCode, pkg);
+            }
+          });
+        }
+      });
+
+      // Convert Map back to array
+      const allPackages = Array.from(packagesMap.values());
+
+      console.log('Combined packages:', {
+        total: allPackages.length,
+        types: allPackages.map(p => p.name.split(' ')[0]).filter((v, i, a) => a.indexOf(v) === i)
+      });
+
+      // Transform the API response into the format your component expects
+      const formattedProducts = allPackages.map(pkg => {
+        if (!pkg) return null;
+        
+        try {
+          // Extract duration from package name
+          let duration = null;
+          
+          // Check for specific duration patterns in name
+          if (pkg.name.toLowerCase().includes('/day')) {
+            duration = 1;
+          } else if (pkg.name.match(/\b1\s*day\b/i)) {
+            duration = 1;
+          } else if (pkg.name.match(/\b7\s*days?\b/i)) {
+            duration = 7;
+          } else if (pkg.name.match(/\b30\s*days?\b/i)) {
+            duration = 30;
+          } else if (pkg.name.match(/\b365\s*days?\b/i)) {
+            duration = 365;
+          } else if (pkg.name.match(/\b15\s*days?\b/i)) {
+            duration = 15;
+          } else if (pkg.name.match(/\b180\s*days?\b/i)) {
+            duration = 180;
+          } else if (pkg.name.match(/\b90\s*days?\b/i)) {
+            duration = 90;
+          } else {
+            // Try to extract any number followed by "days"
+            const durationMatch = pkg.name.match(/(\d+)\s*days?/i);
+            if (durationMatch) {
+              duration = parseInt(durationMatch[1]);
+            }
+          }
+
+          // If no duration found in name, use API value
+          duration = duration || pkg.unusedValidTime || 30;
+
+          return {
+            id: pkg.packageCode || '',
+            name: pkg.name || 'Unnamed Package',
+            price: (typeof pkg.price === 'number' ? pkg.price : 0) / 100000,
+            data: (typeof pkg.volume === 'number' ? pkg.volume : 0) / (1024 * 1024 * 1024),
+            duration: duration,
+            validity: duration,
+            speed: pkg.speed || '4G',
+            smsSupported: pkg.smsStatus === 1,
+            coverage: Array.isArray(pkg.locationNetworkList) 
+              ? pkg.locationNetworkList.map(loc => loc.locationCode || '').filter(Boolean)
+              : [],
+            networks: Array.isArray(pkg.locationNetworkList)
+              ? pkg.locationNetworkList.map(loc => ({
+                  country: loc.locationName || '',
+                  operators: Array.isArray(loc.operatorList) ? loc.operatorList : []
+                }))
+              : []
+          };
+        } catch (e) {
+          console.error('Error processing package:', e, pkg);
+          return null;
+        }
+      }).filter(Boolean); // Remove any null entries
+
+      console.log('Formatted Products:', {
+        count: formattedProducts.length,
+        regions: [...new Set(formattedProducts.map(p => p.region))],
+        firstFewProducts: formattedProducts.slice(0, 3)
+      });
+
+      if (formattedProducts.length === 0) {
+        throw new Error('No valid products found in response');
+      }
+
+      setProducts(formattedProducts);
+      setFilteredProducts(formattedProducts);
+      setLocations(groupLocationsByRegion(formattedProducts));
+      setInitialized(true);
     } catch (err) {
-      console.error('Error:', err)
-      setError('Failed to fetch products')
+      console.error('Error details:', err);
+      setError(`Failed to fetch products: ${err.message}`);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Load products on mount
   useEffect(() => {
@@ -206,82 +326,139 @@ function Products() {
     if (!products.length) return
 
     let filtered = [...products]
+    console.log('Initial products count:', filtered.length);
 
-    // Search filter
+    // Search filter - check both country names and plan names/regions
     if (filters.searchTerm) {
       const search = filters.searchTerm.toLowerCase()
       filtered = filtered.filter(product => {
-        if (product.name.toLowerCase().includes(search)) return true
-        return product.coverage.some(code => 
-          getCountryName(code).toLowerCase().includes(search)
-        )
+        // Check plan name and region
+        const { displayName, region, coverage } = formatPlanName(product.name)
+        if (displayName.toLowerCase().includes(search)) return true
+        if (region.toLowerCase().includes(search)) return true
+        if (coverage.toLowerCase().includes(search)) return true
+
+        // Check coverage countries
+        return product.coverage.some(code => {
+          const countryName = getCountryName(code)
+          return countryName.toLowerCase().includes(search)
+        })
       })
+      console.log('After search filter:', filtered.length);
     }
 
-    // Data filter
+    // Data filter - handle both GB and MB values
     if (filters.minData > 0 || filters.maxData < ranges.data.max) {
-      filtered = filtered.filter(product => 
-        product.data >= filters.minData && 
-        product.data <= filters.maxData
-      )
+      filtered = filtered.filter(product => {
+        const dataInGB = product.data < 1 ? product.data : product.data
+        return dataInGB >= filters.minData && dataInGB <= filters.maxData
+      })
+      console.log('After data filter:', filtered.length);
     }
 
-    // Price filter
+    // Price filter - ensure we're comparing in the same currency unit
     if (filters.minPrice > 0 || filters.maxPrice < ranges.price.max) {
       filtered = filtered.filter(product => 
         product.price >= filters.minPrice && 
         product.price <= filters.maxPrice
       )
+      console.log('After price filter:', filtered.length);
+    }
+
+    // Log duration values to debug
+    if (filters.duration !== 'all') {
+      console.log('Duration values:', filtered.map(p => ({
+        name: p.name,
+        validity: p.validity,
+        duration: p.duration
+      })));
     }
 
     // Duration filter
     if (filters.duration !== 'all') {
       filtered = filtered.filter(product => {
-        const days = product.duration
+        const duration = product.duration;
+        
         switch(filters.duration) {
-          case 'daily': return days === 1
-          case 'weekly': return days > 1 && days <= 7
-          case 'monthly': return days > 7 && days <= 30
-          case 'yearly': return days > 30
-          default: return true
+          case '1 Day':
+            return duration === 1 || product.name.toLowerCase().includes('/day');
+          case '7 Days':
+            return duration === 7 || (duration > 1 && duration <= 7);
+          case '30 Days':
+            return duration === 30 || (duration > 7 && duration <= 30);
+          case '365 Days':
+            return duration === 365 || duration > 180;
+          default:
+            return true;
         }
-      })
+      });
+      
+      console.log('After duration filter:', {
+        duration: filters.duration,
+        count: filtered.length,
+        plans: filtered.map(p => ({
+          name: p.name,
+          duration: p.duration,
+          matched: true
+        }))
+      });
     }
 
-    // Sort products
+    // Sort results
     filtered.sort((a, b) => {
-      switch(sortBy) {
-        case 'price': return a.price - b.price
-        case 'data': return b.data - a.data
-        default: return 0
+      // First sort by region type (Global > Regional > Country)
+      const { planType: typeA } = formatPlanName(a.name)
+      const { planType: typeB } = formatPlanName(b.name)
+      
+      const typeOrder = { 'International': 0, 'Regional': 1, 'Country': 2, 'Other': 3 }
+      if (typeOrder[typeA] !== typeOrder[typeB]) {
+        return typeOrder[typeA] - typeOrder[typeB]
       }
+      
+      // Then sort by price
+      return a.price - b.price
     })
 
     setFilteredProducts(filtered)
-  }, [products, filters, sortBy, ranges])
+  }, [products, filters, ranges])
 
-  // Update search handling
+  // Update handleSearch to be more comprehensive
   const handleSearch = (input) => {
     setSearchInput(input)
+    setRegionSearch(input)
     
-    // Start loading products if not initialized
-    if (!initialized) {
-      loadProducts()
+    // Only load products if input looks like a region/country and we haven't loaded yet
+    if (!initialized && input.length >= 2) {
+      // Check if input matches any country names, regions, or plan types
+      const matchesCountry = Object.values(countryNames).some(name => 
+        name.toLowerCase().includes(input.toLowerCase())
+      )
+      
+      const matchesRegion = [
+        'global', 'europe', 'asia', 'north america', 'south america',
+        'africa', 'middle east', 'caribbean', 'central america',
+        'gulf states', 'united states', 'china', 'singapore'
+      ].some(region => region.includes(input.toLowerCase()))
+      
+      if (matchesCountry || matchesRegion) {
+        loadProducts()
+      }
     }
 
     if (input.length > 1) {
-      // Get unique countries from all products
-      const allCountries = new Set()
-      products.forEach(product => {
-        product.coverage.forEach(code => {
-          const countryName = getCountryName(code)
-          if (countryName.toLowerCase().includes(input.toLowerCase())) {
-            allCountries.add(countryName)
-          }
-        })
-      })
-
-      setSearchSuggestions(Array.from(allCountries).slice(0, 5))
+      // Get suggestions from both countries and regions
+      const countrySuggestions = Object.values(countryNames)
+        .filter(name => name.toLowerCase().includes(input.toLowerCase()))
+      
+      const regionSuggestions = [
+        'Global Coverage', 'Europe', 'Asia Pacific',
+        'North America', 'South America', 'Africa',
+        'Middle East', 'Caribbean', 'Central America',
+        'Gulf States', 'United States', 'China', 'Singapore'
+      ].filter(region => region.toLowerCase().includes(input.toLowerCase()))
+      
+      const allSuggestions = [...new Set([...regionSuggestions, ...countrySuggestions])]
+      setSearchSuggestions(allSuggestions.slice(0, 5))
     } else {
       setSearchSuggestions([])
     }
@@ -333,50 +510,41 @@ function Products() {
   return (
     <div className="products-container">
       <div className="products-header">
-        <h1>Global eSIM Plans</h1>
-        <p>Stay connected worldwide with our flexible data plans.</p>
+        <h1>eSIM Data Plans</h1>
+        <p>Enter your destination to find available plans.</p>
       </div>
 
       <div className="filters-and-search">
-        {/* Search bar */}
-        <div className="search-section">
-          <div className="search-bar">
-            <FiSearch className="search-icon" />
-            <input
-              type="text"
-              placeholder="Type a country name..."
-              value={searchInput}
-              onChange={e => handleSearch(e.target.value)}
-            />
-            {searchInput && (
-              <FiX 
-                className="clear-icon"
-                onClick={() => {
-                  setSearchInput('')
-                  setSearchSuggestions([])
-                  setFilters(prev => ({...prev, searchTerm: ''}))
-                }}
-              />
-            )}
-          </div>
-          {searchSuggestions.length > 0 && (
-            <div className="search-suggestions">
-              {searchSuggestions.map((country, idx) => (
-                <div
-                  key={idx}
-                  className="suggestion-item"
-                  onClick={() => {
-                    setSearchInput(country)
-                    setFilters(prev => ({...prev, searchTerm: country}))
-                    setSearchSuggestions([])
-                  }}
-                >
-                  {country}
-                </div>
-              ))}
-            </div>
+        <div className="search-bar">
+          <FiSearch className="search-icon" />
+          <input
+            type="text"
+            placeholder="Enter a country or region..."
+            value={searchInput}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+          {searchInput && (
+            <button 
+              className="clear-search" 
+              onClick={() => handleSearch('')}
+            >
+              <FiX />
+            </button>
           )}
         </div>
+        {searchSuggestions.length > 0 && (
+          <div className="search-suggestions">
+            {searchSuggestions.map((suggestion, index) => (
+              <div
+                key={index}
+                className="suggestion-item"
+                onClick={() => handleSearch(suggestion)}
+              >
+                {suggestion}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Always visible filters */}
         <div className="filters-section">
@@ -387,10 +555,10 @@ function Products() {
               <div className="filter-options">
                 {[
                   {value: 'all', label: 'All'},
-                  {value: 'daily', label: '1 Day'},
-                  {value: 'weekly', label: '7 Days'},
-                  {value: 'monthly', label: '30 Days'},
-                  {value: 'yearly', label: '365 Days'}
+                  {value: '1 Day', label: '1 Day'},
+                  {value: '7 Days', label: '7 Days'},
+                  {value: '30 Days', label: '30 Days'},
+                  {value: '365 Days', label: '365 Days'}
                 ].map(({value, label}) => (
                   <button
                     key={value}
@@ -466,38 +634,45 @@ function Products() {
       ) : error ? (
         <div className="error">{error}</div>
       ) : !initialized ? (
-        <div className="no-results">
-          Start typing to search plans...
+        <div className="no-results search-prompt">
+          <FiSearch className="large-search-icon" />
+          <h2>Where are you traveling?</h2>
+          <p>Enter your destination to find the perfect eSIM plan.</p>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="no-results">
-          No plans found matching your criteria
+          No plans found for {regionSearch}
         </div>
       ) : (
         <div className="products-grid">
           {filteredProducts.map((product) => {
-            const { displayName, region, formattedName } = formatPlanName(product.name)
+            const { displayName, region, formattedName, planType, coverage } = formatPlanName(product.name)
             
             return (
               <div key={product.id} className="product-card">
                 <div className="card-header">
                   <div className="plan-title">
-                    <span className="plan-region">{region}</span>
-                    <h3>{formattedName}</h3>
+                    <span className={`plan-type ${planType.toLowerCase()}`}>{region}</span>
+                    <h3>{displayName}</h3>
                   </div>
                   <span className="price">{formatPrice(product.price)}</span>
                 </div>
                 
                 <div className="plan-specs">
                   <div className="data-badge">
-                    {product.data} GB
+                    {formatDataAmount(product.data)}
                   </div>
                   <div className="duration-badge">
-                    {product.duration} {product.durationUnit}s
+                    {formatDuration(`${product.validity}Days`)}
                   </div>
                   {product.smsSupported && (
-                    <div className="feature-badge">SMS</div>
+                    <div className="feature-badge">SMS Included</div>
                   )}
+                </div>
+
+                <div className="coverage-info">
+                  <span className="coverage-label">Coverage:</span>
+                  <span className="coverage-value">{coverage}</span>
                 </div>
 
                 <div className="plan-details">
@@ -507,7 +682,7 @@ function Products() {
                   </div>
                   <div className="detail-item">
                     <span className="label">Validity</span>
-                    <span className="value">{product.validity} days</span>
+                    <span className="value">{formatDuration(`${product.validity}Days`)}</span>
                   </div>
                 </div>
 

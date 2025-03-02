@@ -213,20 +213,23 @@
 }
 
 .plan-type {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: 0.25rem;
 }
 
-.plan-type.global {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+.plan-type.international {
+  color: #2563eb; /* Blue */
 }
 
 .plan-type.regional {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #059669; /* Green */
+}
+
+.plan-type.country {
+  color: #7c3aed; /* Purple */
 }
 
 .plan-specs {
@@ -802,8 +805,6 @@ input[type="range"]::-moz-range-thumb {
   background: #e5e7eb;
   border-radius: 3px;
   outline: none;
-  position: relative;
-  margin: 10px 0;
 }
 
 /* Thumb styles */
@@ -1055,4 +1056,70 @@ input[type="range"]::-moz-range-thumb {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
+}
+
+.search-prompt {
+  text-align: center;
+  padding: 40px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.search-prompt .large-search-icon {
+  font-size: 48px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.search-prompt h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.search-prompt p {
+  color: #666;
+}
+
+.suggestion-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suggestion-item:hover {
+  background-color: #f0f2f5;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.coverage-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  margin: 0.5rem 0;
+}
+
+.coverage-label {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.coverage-value {
+  font-weight: 500;
+  color: #334155;
 } 

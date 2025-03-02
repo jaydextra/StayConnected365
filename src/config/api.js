@@ -3,8 +3,8 @@ import { planReference } from '../data/plans'
 
 // For Firebase Functions, we'll use different base URLs
 const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://stayconnected365-api.onrender.com/api'  // Your Render URL
-  : 'http://localhost:3001/api';              // Local development server
+  ? 'https://us-central1-stayconnected365-73277.cloudfunctions.net'
+  : 'http://localhost:5001/stayconnected365-73277/us-central1';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -12,79 +12,36 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   }
-})
+});
 
 // Export the configured API client
 export const esimApi = {
   getProducts: async () => {
     try {
-      // First get global plans
-      const globalResponse = await api.post('/package/list', {
-        type: 'BASE',
-        locationCode: '!GL'
+      console.log('Starting getProducts request');
+      
+      // Make a single request for all plans
+      const response = await api.post('/packageList', {
+        type: 'BASE'
       });
+      
+      console.log('Plans response:', response);
 
-      if (!globalResponse.data.success) {
-        throw new Error(globalResponse.data.errorMessage || 'Failed to fetch global plans');
+      if (!response.data.success) {
+        throw new Error(response.data.errorMessage || 'Failed to fetch plans');
       }
 
-      // Then get regional plans
-      const regionalResponse = await api.post('/package/list', {
-        type: 'BASE',
-        locationCode: '!RG'
-      });
-
-      if (!regionalResponse.data.success) {
-        throw new Error(regionalResponse.data.errorMessage || 'Failed to fetch regional plans');
-      }
-
-      // Combine and format all plans
-      const allPlans = [
-        ...(globalResponse.data.obj?.packageList || []),
-        ...(regionalResponse.data.obj?.packageList || [])
-      ];
-
-      return allPlans.map(pkg => ({
-        id: pkg.packageCode,
-        name: pkg.name,
-        slug: pkg.slug,
-        price: pkg.price / 10000,
-        data: pkg.volume / (1024 * 1024 * 1024),
-        duration: pkg.duration,
-        durationUnit: pkg.durationUnit.toLowerCase(),
-        validity: pkg.unusedValidTime,
-        speed: pkg.speed,
-        smsSupported: pkg.smsStatus > 0,
-        type: pkg.location.includes(',') ? 'Multi-Area' : 'Single',
-        region: planReference.getRegion(pkg.location),
-        coverage: pkg.location.split(',').map(code => planReference.getCountryName(code)),
-        networks: pkg.locationNetworkList?.map(loc => ({
-          country: loc.locationName,
-          flag: loc.locationLogo,
-          operators: loc.operatorList?.map(op => ({
-            name: op.operatorName,
-            type: op.networkType
-          }))
-        })),
-        description: pkg.description,
-        topupSupported: pkg.supportTopUpType === 2,
-        breakoutIp: pkg.ipExport
-      }));
-
+      return response.data.obj?.packageList || [];
     } catch (error) {
-      console.error('API Error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      throw new Error(error.response?.data?.errorMessage || error.message || 'Failed to fetch products');
+      console.error('Error fetching products:', error);
+      throw error;
     }
   },
 
   purchaseEsim: async (packageInfo) => {
     try {
       // Step 1: Create the order
-      const orderResponse = await api.post('/esim/order', {
+      const orderResponse = await api.post('/api/esim/order', {
         transactionId: `order-${Date.now()}`,
         packageInfoList: [{
           packageCode: packageInfo.id,
@@ -105,7 +62,7 @@ export const esimApi = {
       
       for (let i = 0; i < maxRetries; i++) {
         try {
-          const queryResponse = await api.post('/esim/query', {
+          const queryResponse = await api.post('/api/esim/query', {
             orderNo: orderNo,
             pager: {
               pageNum: 1,
@@ -150,7 +107,7 @@ export const esimApi = {
 
   queryEsims: async ({ orderNo, iccid, pager }) => {
     try {
-      const response = await api.post('/esim/query', {
+      const response = await api.post('/api/esim/query', {
         orderNo,
         iccid,
         pager

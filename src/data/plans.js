@@ -85,33 +85,89 @@ export const planReference = {
   regions: {
     'Global': ['!GL'],
     'North America': ['US', 'CA', 'MX'],
-    'East Asia': ['JP', 'KR', 'CN', 'HK', 'TW'],
-    'Southeast Asia': ['TH', 'VN', 'MY', 'SG', 'ID', 'PH'],
-    'Europe': ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'CH'],
-    // Add other regions...
+    'South America': ['AR', 'BR', 'CL', 'CO', 'PE', 'UY', 'EC', 'PY', 'BO'],
+    'Central America': ['CR', 'PA', 'HN', 'GT', 'SV', 'NI', 'BZ'],
+    'Caribbean': ['DO', 'PR', 'JM', 'BS', 'BB', 'TT', 'HT', 'CU'],
+    'East Asia': ['JP', 'KR', 'CN', 'HK', 'TW', 'MO'],
+    'Southeast Asia': ['TH', 'VN', 'MY', 'SG', 'ID', 'PH', 'KH', 'LA', 'MM', 'BN'],
+    'South Asia': ['IN', 'PK', 'BD', 'LK', 'NP', 'BT', 'MV'],
+    'Europe': ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'PT', 'IE', 'DK', 'NO', 'SE', 'FI', 'IS'],
+    'Eastern Europe': ['RU', 'UA', 'PL', 'RO', 'CZ', 'HU', 'BG', 'SK', 'HR', 'RS', 'EE', 'LV', 'LT'],
+    'Middle East': ['TR', 'IL', 'SA', 'AE', 'QA', 'KW', 'BH', 'OM', 'JO', 'LB', 'IQ', 'IR'],
+    'Africa': ['EG', 'ZA', 'MA', 'NG', 'KE', 'TN', 'GH', 'SN', 'CI', 'CM', 'UG', 'TZ'],
+    'Oceania': ['AU', 'NZ', 'FJ', 'PG', 'SB', 'VU', 'NC', 'WS']
   },
   
   // Helper to get region from country codes
   getRegion(countryCodes) {
-    if (countryCodes === '!GL') return 'Global'
-    const codes = countryCodes.split(',')
+    if (!countryCodes) return 'Unknown';
+    if (countryCodes === '!GL') return 'Global';
+    if (countryCodes === '!RG') return 'Regional';
     
+    const codes = countryCodes.split(',');
+    
+    // Check if codes match any specific region
     for (const [region, regionCodes] of Object.entries(this.regions)) {
       if (codes.some(code => regionCodes.includes(code))) {
-        return region
+        // If all codes are from the same region, return that region
+        if (codes.every(code => regionCodes.includes(code))) {
+          return region;
+        }
+        // If codes span multiple regions, check for common groupings
+        if (region === 'North America' && codes.every(code => ['US', 'CA', 'MX'].includes(code))) {
+          return 'North America';
+        }
+        if (region === 'East Asia' && codes.every(code => ['JP', 'KR', 'CN', 'HK', 'TW'].includes(code))) {
+          return 'East Asia';
+        }
       }
     }
-    return 'Other'
+    
+    // If codes span multiple regions
+    if (codes.length > 1) {
+      return 'Multi-Region';
+    }
+    
+    return 'Other';
   },
 
   // Helper to get proper name for a country code
   getCountryName(code) {
     const names = {
+      '!GL': 'Global',
+      '!RG': 'Regional',
       'US': 'United States',
+      'CA': 'Canada',
+      'MX': 'Mexico',
       'GB': 'United Kingdom',
+      'FR': 'France',
+      'DE': 'Germany',
+      'IT': 'Italy',
+      'ES': 'Spain',
+      'JP': 'Japan',
+      'KR': 'South Korea',
       'CN': 'China',
-      // Add all country names from CSV...
-    }
-    return names[code] || code
+      'HK': 'Hong Kong',
+      'TW': 'Taiwan',
+      'SG': 'Singapore',
+      'MY': 'Malaysia',
+      'TH': 'Thailand',
+      'VN': 'Vietnam',
+      'ID': 'Indonesia',
+      'PH': 'Philippines',
+      'IN': 'India',
+      'AU': 'Australia',
+      'NZ': 'New Zealand',
+      'BR': 'Brazil',
+      'AR': 'Argentina',
+      'CL': 'Chile',
+      'AE': 'United Arab Emirates',
+      'SA': 'Saudi Arabia',
+      'TR': 'Turkey',
+      'RU': 'Russia',
+      'ZA': 'South Africa',
+      // Add more country codes and names as needed
+    };
+    return names[code] || code;
   }
-} 
+}; 

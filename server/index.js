@@ -7,18 +7,25 @@ require('dotenv').config()
 
 const app = express()
 
-// More permissive CORS setup
+// First, use cors middleware
+app.use(cors({
+  origin: ['https://stayconnected365-73277.web.app', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
+}))
+
+// Then add explicit headers for preflight
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://stayconnected365-73277.web.app');
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.header('Access-Control-Allow-Credentials', 'true');
 
-  // Handle preflight requests
+  // Handle OPTIONS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
   next();
 });
 

@@ -3,13 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "concurrently \"vite\" \"node server/index.js\"",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
     "dev:server": "node server.js",
     "build": "NODE_ENV=production vite build && cp public/.htaccess dist/.htaccess",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^3.1.1",

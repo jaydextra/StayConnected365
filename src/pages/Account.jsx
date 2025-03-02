@@ -44,44 +44,121 @@ function Account() {
 
   const fetchUserEsims = async () => {
     try {
-      setLoading(true)
-      const response = await esimApi.queryEsims({
-        pager: {
-          pageNum: 1,
-          pageSize: 20
-        }
-      })
+      setLoading(true);
+      
+      // First get all available packages
+      console.log('Fetching available packages...');
+      const packagesResponse = await fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/packageList', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'BASE' // Remove locationCode: '!GL' to get all packages
+        })
+      });
 
-      if (!response.obj?.esimList) {
-        throw new Error('No eSIM data found')
+      if (!packagesResponse.ok) {
+        throw new Error('Failed to fetch packages');
       }
 
-      // Filter out any cancelled or expired eSIMs if needed
-      const activeEsims = response.obj.esimList.filter(esim => 
-        !['CANCEL', 'USED_EXPIRED', 'UNUSED_EXPIRED'].includes(esim.esimStatus)
-      )
+      const packagesData = await packagesResponse.json();
+      console.log('Packages Response:', packagesData);
+      
+      // Then get user's purchased eSIMs
+      console.log('Fetching user eSIMs...');
+      const userResponse = await fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/getUserEsims', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          pager: {
+            pageNum: 1,
+            pageSize: 20
+          }
+        })
+      });
 
-      setUserEsims(activeEsims)
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user eSIMs');
+      }
+
+      const userData = await userResponse.json();
+      console.log('User eSIMs Response:', userData);
+      
+      if (!userData.success) {
+        throw new Error(userData.errorMsg || 'Failed to fetch user eSIMs');
+      }
+
+      // Get the user's purchased eSIMs
+      const userEsims = userData.obj?.esimList || [];
+      console.log('User eSIMs:', userEsims);
+
+      // Combine package info with user eSIM data
+      const enrichedEsims = userEsims.map(esim => {
+        console.log('Processing eSIM:', esim);
+        const packageInfo = packagesData.obj?.packageList?.find(
+          pkg => pkg.packageCode === esim.packageList[0]?.packageCode
+        );
+        console.log('Found package info:', packageInfo);
+        
+        return {
+          ...esim,
+          ...packageInfo,
+          // Keep both original and enriched package data
+          packageDetails: packageInfo,
+          // Format data values
+          totalDataGB: ((esim.totalVolume || 0) / (1024 * 1024 * 1024)).toFixed(1),
+          usedDataGB: ((esim.orderUsage || 0) / (1024 * 1024 * 1024)).toFixed(2),
+          status: esim.esimStatus,
+          validUntil: esim.expiredTime ? new Date(esim.expiredTime).toLocaleDateString() : 'Not activated'
+        };
+      });
+
+      console.log('Enriched eSIMs:', enrichedEsims);
+      setUserEsims(enrichedEsims);
     } catch (err) {
-      console.error('Error fetching eSIMs:', err)
-      setError(err.message)
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCancelEsim = async (esimTranNo) => {
     try {
-      setLoading(true)
-      await esimApi.cancelEsim({ esimTranNo })
+      setLoading(true);
+      const response = await fetch('https://us-central1-stayconnected365-73277.cloudfunctions.net/cancelEsim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ esimTranNo })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel eSIM');
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.errorMsg || 'Failed to cancel eSIM');
+      }
+
       // Refresh the list after cancellation
-      await fetchUserEsims()
+      await fetchUserEsims();
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (activeTab === 'plans' || activeTab === 'usage') {
@@ -294,30 +371,66 @@ function Account() {
             ) : (
               <div className="usage-grid">
                 {userEsims.map(esim => (
-                  <div key={esim.iccid} className="usage-card">
-                    <h4>{esim.packageList[0]?.packageName}</h4>
+                  <div key={esim.iccid || esim.packageCode} className="usage-card">
+                    <div className="usage-card-header">
+                      <h4>
+                        {(() => {
+                          const name = esim.name || '';
+                          // Extract data and duration using regex
+                          const match = name.match(/(\d+)GB\s+(\d+)Days/i);
+                          if (match) {
+                            const [_, data, days] = match;
+                            return `${data}GB Global Plan`;
+                          }
+                          return name.replace(/Global\d+\s+/, 'Global Plan - ');
+                        })()}
+                      </h4>
+                      <span className="plan-duration">
+                        {esim.duration || 0} days
+                      </span>
+                    </div>
+                    
                     <div className="usage-stats">
                       <div className="data-usage">
-                        <div className="usage-bar">
-                          <div 
-                            className="usage-fill" 
-                            style={{ 
-                              width: `${(esim.orderUsage / esim.totalVolume) * 100}%` 
-                            }}
-                          />
+                        <div className="usage-bar-container">
+                          <div className="usage-bar">
+                            <div 
+                              className="usage-fill" 
+                              style={{ 
+                                width: `${((esim.orderUsage || 0) / (esim.totalVolume || 1)) * 100}%` 
+                              }}
+                            />
+                          </div>
+                          <div className="usage-percentage">
+                            {Math.round(((esim.orderUsage || 0) / (esim.totalVolume || 1)) * 100)}%
+                          </div>
                         </div>
-                        <div className="usage-labels">
-                          <span>
-                            Used: {((esim.orderUsage) / (1024 * 1024 * 1024)).toFixed(2)}GB
-                          </span>
-                          <span>
-                            Total: {(esim.totalVolume / (1024 * 1024 * 1024)).toFixed(1)}GB
-                          </span>
+                        
+                        <div className="usage-details">
+                          <div className="usage-item">
+                            <span className="label">Used</span>
+                            <span className="value">{((esim.orderUsage || 0) / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+                          </div>
+                          <div className="usage-item">
+                            <span className="label">Total</span>
+                            <span className="value">{((esim.totalVolume || 0) / (1024 * 1024 * 1024)).toFixed(1)} GB</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="validity-info">
-                        <p>Valid until: {new Date(esim.expiredTime).toLocaleDateString()}</p>
-                        <p>Status: {esim.smdpStatus}</p>
+
+                      <div className="plan-info">
+                        <div className="info-item">
+                          <span className="label">Valid until</span>
+                          <span className="value">
+                            {esim.expiredTime ? new Date(esim.expiredTime).toLocaleDateString() : 'Not activated'}
+                          </span>
+                        </div>
+                        <div className="info-item">
+                          <span className="label">Status</span>
+                          <span className={`status-badge ${(esim.smdpStatus || esim.esimStatus || '').toLowerCase()}`}>
+                            {esim.smdpStatus || esim.esimStatus || 'Not activated'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -346,65 +459,91 @@ function Account() {
               </div>
             ) : (
               <div className="esim-plans-grid">
-                {userEsims.map(esim => (
-                  <div key={esim.iccid} className="esim-plan-card">
-                    <div className="plan-header">
-                      <h4>{esim.packageList[0]?.packageName || 'eSIM Plan'}</h4>
-                      <span className={`status ${esim.esimStatus.toLowerCase()}`}>
-                        {esim.esimStatus}
-                      </span>
-                    </div>
-                    
-                    <div className="plan-details">
-                      <div className="detail-item">
-                        <span>ICCID:</span>
-                        <span>{esim.iccid}</span>
+                {userEsims.map(esim => {
+                  // Format the plan name
+                  const name = esim.name || '';
+                  const match = name.match(/(\d+)GB\s+(\d+)Days/i);
+                  const formattedName = match 
+                    ? `${match[1]}GB Global Plan` 
+                    : name.replace(/Global\d+\s+/, 'Global Plan - ');
+
+                  // Calculate data in GB
+                  const totalData = ((esim.totalVolume || 0) / (1024 * 1024 * 1024)).toFixed(1);
+                  const usedData = ((esim.orderUsage || 0) / (1024 * 1024 * 1024)).toFixed(2);
+                  
+                  return (
+                    <div key={esim.iccid || esim.packageCode} className="esim-plan-card">
+                      <div className="plan-header">
+                        <h4>{formattedName}</h4>
+                        <span className={`status-badge ${(esim.esimStatus || '').toLowerCase()}`}>
+                          {esim.esimStatus || 'Not Activated'}
+                        </span>
                       </div>
-                      <div className="detail-item">
-                        <span>Data:</span>
-                        <span>{(esim.totalVolume / (1024 * 1024 * 1024)).toFixed(1)}GB</span>
-                      </div>
-                      <div className="detail-item">
-                        <span>Used:</span>
-                        <span>{((esim.orderUsage || 0) / (1024 * 1024 * 1024)).toFixed(2)}GB</span>
-                      </div>
-                      <div className="detail-item">
-                        <span>Validity:</span>
-                        <span>{esim.totalDuration} {esim.durationUnit}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span>Expires:</span>
-                        <span>{new Date(esim.expiredTime).toLocaleDateString()}</span>
-                      </div>
-                      {esim.msisdn && (
-                        <div className="detail-item">
-                          <span>Phone Number:</span>
-                          <span>{esim.msisdn}</span>
+                      
+                      <div className="plan-details">
+                        <div className="data-usage-section">
+                          <div className="usage-bar">
+                            <div 
+                              className="usage-fill" 
+                              style={{ 
+                                width: `${((esim.orderUsage || 0) / (esim.totalVolume || 1)) * 100}%` 
+                              }}
+                            />
+                          </div>
+                          <div className="data-stats">
+                            <span>{usedData} GB used of {totalData} GB</span>
+                          </div>
                         </div>
-                      )}
+
+                        <div className="plan-info-grid">
+                          <div className="info-item">
+                            <span className="label">Plan ID</span>
+                            <span className="value">{esim.iccid || esim.packageCode || 'N/A'}</span>
+                          </div>
+                          <div className="info-item">
+                            <span className="label">Duration</span>
+                            <span className="value">{esim.totalDuration || esim.duration || 0} days</span>
+                          </div>
+                          <div className="info-item">
+                            <span className="label">Expires</span>
+                            <span className="value">
+                              {esim.expiredTime ? new Date(esim.expiredTime).toLocaleDateString() : 'Not activated'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {esim.msisdn && (
+                          <div className="info-item">
+                            <span className="label">Phone Number</span>
+                            <span className="value">{esim.msisdn}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="plan-actions">
+                        {esim.esimStatus === 'GOT_RESOURCE' && (
+                          <button 
+                            onClick={() => handleCancelEsim(esim.esimTranNo)}
+                            className="cancel-btn"
+                          >
+                            Cancel Plan
+                          </button>
+                        )}
+
+                        {esim.qrCodeUrl && (
+                          <a 
+                            href={esim.qrCodeUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="qr-btn"
+                          >
+                            View QR Code
+                          </a>
+                        )}
+                      </div>
                     </div>
-
-                    {esim.esimStatus === 'GOT_RESOURCE' && (
-                      <button 
-                        onClick={() => handleCancelEsim(esim.esimTranNo)}
-                        className="cancel-btn"
-                      >
-                        Cancel Plan
-                      </button>
-                    )}
-
-                    {esim.qrCodeUrl && (
-                      <a 
-                        href={esim.qrCodeUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="qr-btn"
-                      >
-                        View QR Code
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

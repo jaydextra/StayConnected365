@@ -77,6 +77,10 @@ function Home() {
     navigate('/products')
   }
 
+  const handleHowItWorks = () => {
+    navigate('/how-it-works')
+  }
+
   return (
     <div className="home">
       <section className="hero">
@@ -87,7 +91,7 @@ function Home() {
           </p>
           <div className="cta-buttons">
             <button className="cta-primary" onClick={handleViewPlans}>View Plans</button>
-            <button className="cta-secondary">How It Works</button>
+            <button className="cta-secondary" onClick={handleHowItWorks}>How It Works</button>
           </div>
         </div>
       </section>
